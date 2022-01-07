@@ -1,0 +1,247 @@
+#pragma once
+#include "SpaceCircleSolver.h"
+
+namespace MtSpaceCircleSolver
+{
+	SpaceCircleSolverFailure::SpaceCircleSolverFailure(const char* msg) :Message(msg) {};
+	const char* SpaceCircleSolverFailure::GetMessage() { return Message; }
+
+	void SpaceCircleSolver::compute(Eigen::VectorXd& circlePara, double& radius)
+	{
+		if (mbRansac)
+		{
+			calculateCircleParaByRansac(0.99, 0.8, 3, circlePara,radius);
+		}
+		else
+		{
+			calculateCirclePara(mData, circlePara,radius);
+		}
+	}
+
+	void SpaceCircleSolver::calculatePlanarPara(const std::vector<Eigen::Vector3d>& data, Eigen::VectorXd& planarPara)throw(SpaceCircleSolverFailure)
+	{
+		const int number = data.size();
+		if (number < 3)
+		{
+			throw SpaceCircleSolverFailure("Not Enough Points!");
+		}
+		
+		Eigen::MatrixXd N(number, 3);
+		Eigen::MatrixXd L(number, 1);
+		
+		for (int it = 0; it < number; it++)
+		{
+			L(it, 0) = 1;
+
+			N(it, 0) = data[it](0);
+			N(it, 1) = data[it](1);
+			N(it, 2) = data[it](2);
+		}
+		
+		Eigen::MatrixXd Nt = N.transpose();
+		Eigen::MatrixXd NtN = Nt * N;
+		
+		planarPara = NtN.inverse() * Nt * L;
+	}
+
+	lli SpaceCircleSolver::combination(const lli& n, const lli& a)
+	{
+		lli over = 1;
+		lli below = 1;
+
+		lli ni = n;
+		lli ai = a;
+		
+		for (lli i = 0; i < a; i++)
+			over *= ni - i;
+		
+		for (lli i = 0; i < a; i++)
+			below *= ai - i;
+	
+		return over / below;
+	}
+
+	void SpaceCircleSolver::calculateCirclePara(const std::vector<Eigen::Vector3d>& data, Eigen::VectorXd& center, double& radius)throw(SpaceCircleSolverFailure)
+	{
+		const int number = data.size();
+		if (number < 3)
+		{
+			throw SpaceCircleSolverFailure("Not Enough Points!");
+		}
+
+		Eigen::MatrixXd B(number - 1, 3);
+		Eigen::MatrixXd L(number - 1, 1);
+
+		for (int it = 0; it < number - 1; it++)
+		{
+			double deltax = data[it + 1](0) - data[it](0);
+			double deltay = data[it + 1](1) - data[it](1);
+			double deltaz = data[it + 1](2) - data[it](2);
+
+			double addx = data[it + 1](0) + data[it](0);
+			double addy = data[it + 1](1) + data[it](1);
+			double addz = data[it + 1](2) + data[it](2);
+
+			B(it, 0) = deltax;
+			B(it, 1) = deltay;
+			B(it, 2) = deltaz;
+
+			L(it) = 0.5 * (deltax * addx + deltay * addy + deltaz * addz);
+		}
+
+		Eigen::VectorXd planarPara;
+		calculatePlanarPara(data, planarPara);
+
+		Eigen::MatrixXd Bt = B.transpose();
+		Eigen::MatrixXd W(4, 4);
+		W(3, 3) = 0.0;
+		W.topLeftCorner(3, 3) = Bt * B;
+		W.topRightCorner(3, 1) = planarPara;
+		W.bottomLeftCorner(1, 3) = planarPara.transpose();
+
+		Eigen::VectorXd Ld(4,1);
+		Ld(3) = 1.0;
+		Ld.topLeftCorner(3, 1) = Bt * L;
+
+		Eigen::VectorXd result;
+		result = W.inverse() * Ld;
+		center = result.block(0,0,3,1);
+		
+		radius = calculateRadius(data, center);
+	}
+
+	void SpaceCircleSolver::calculateCircleParaByRansac(const float& p, const float& w, const int& s, Eigen::VectorXd& center, double& radius)
+	{
+		const int number = mData.size();
+		const int maxIterations = std::log(1-p)/std::log(1-pow(1-w,s))+1;
+		
+		std::cout << "RANSAC Iterations: " << maxIterations << std::endl;
+
+		// Indices for minimum set selection
+		std::vector<int> vAllIndices;
+		vAllIndices.reserve(number);
+		std::vector<int> vAvailableIndices;
+
+		for (int i = 0; i < number; i++)
+		{
+			vAllIndices.push_back(i);
+		}
+
+		// generate sets of 9 points for each RANSAC iteration
+		mvSets = std::vector<std::vector<int> >(maxIterations, std::vector<int>(s, 0));
+		DUtils::Random::SeedRandOnce(0);
+		for (int it = 0; it < maxIterations; it++)
+		{
+			vAvailableIndices = vAllIndices;
+			// select a minimum set
+			for (int j = 0; j < s; j++)
+			{
+				int randi = DUtils::Random::RandomInt(0, vAvailableIndices.size() - 1);
+				int idx = vAvailableIndices[randi];
+
+				mvSets[it][j] = idx;
+
+				vAvailableIndices[randi] = vAvailableIndices.back();
+				vAvailableIndices.pop_back();
+			}
+		}
+
+		// check RANSAC result
+		int bestInliers = 0;
+		std::vector<bool> vbBestInliers;
+		Eigen::VectorXd bestCenter;
+		for (int i = 0; i < maxIterations; i++)
+		{
+			std::vector<Eigen::Vector3d> vData;
+			vData.resize(s);
+
+			for (int j = 0; j < s; j++)
+				vData[j] = mData[mvSets[i][j]];
+			
+			if (i == 10)
+				std::cout << " " << std::endl;
+
+			Eigen::VectorXd center;
+			std::vector<bool> vbInliers;
+			int nGood = checkCirclePara(mThreshold, vData, vbInliers, center);
+
+			if (nGood > bestInliers)
+			{
+				bestInliers = nGood;
+				bestCenter = center;
+				vbBestInliers = vbInliers;
+			}
+		}
+		
+		// use interior points to calculate parameter values
+		std::vector<Eigen::Vector3d> bestData;
+		
+		for (int i = 0; i < number; i++)
+		{
+			if (vbBestInliers[i])
+			{
+				Eigen::Vector3d point;
+				point = mData[i];
+				bestData.push_back(point);
+			}
+				
+		}
+
+		calculateCirclePara(bestData, center, radius);
+
+		std::cout << "All Points: " << number << std::endl;
+		std::cout << "Best Inliers: " << bestInliers << std::endl;
+	}
+
+	// check the number of interior points generated by curent estimated parameter value
+	int SpaceCircleSolver::checkCirclePara(const float& threshold, const std::vector<Eigen::Vector3d>& data, std::vector<bool>& vbInliers, Eigen::VectorXd& center)
+	{
+		int nGood = 0;
+		double radius;
+		calculateCirclePara(data, center, radius);
+		const int number = mData.size();
+		
+		vbInliers.resize(number);
+		for (int i = 0; i < number; i++)
+			vbInliers[i] = false;
+
+		for (int i = 0; i < number; i++)
+		{
+			Eigen::Vector3d point = mData[i];
+			float dis = calculateDistance(point, center);
+			
+			if (abs(dis - radius) <= threshold)
+			{
+				nGood++;
+				vbInliers[i] = true;
+			}
+		}
+		
+		return nGood;
+	}
+
+	float SpaceCircleSolver::calculateRadius(const std::vector<Eigen::Vector3d>& data, Eigen::VectorXd& center)
+	{
+		float radius = 0.0;
+		const int number = data.size();
+		
+		for (int i = 0; i < number; i++)
+		{
+			Eigen::Vector3d point = data[i];
+			float rt = calculateDistance(point, center);
+			radius += rt;
+		}
+
+		return radius / number;
+	}
+
+	float SpaceCircleSolver::calculateDistance(const Eigen::Vector3d& p1, const Eigen::VectorXd& p2)
+	{
+		float dx = p1(0) - p2(0);
+		float dy = p1(1) - p2(1);
+		float dz = p1(2) - p2(2);
+
+		float radius = std::sqrt(dx*dx+dy*dy+dz*dz);
+		return radius;
+	}
+}
