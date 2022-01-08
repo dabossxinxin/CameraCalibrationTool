@@ -1,5 +1,5 @@
 project(CalibrationTool)
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.14)
 
 add_definitions(-DGLOG_NO_ABBREVIATED_SEVERITIES)
 
