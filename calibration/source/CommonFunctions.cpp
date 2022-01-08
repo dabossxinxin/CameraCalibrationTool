@@ -29,4 +29,17 @@ namespace CommonFunctions
 		std::cout << str << std::endl;
 #endif
 	}
+
+	CommonStruct::LineFunction2D& ComputeLineFunction2D(const cv::Point2f& p1, const cv::Point2f& p2)
+	{
+		CommonStruct::LineFunction2D line;
+		const float x1 = p1.x;
+		const float y1 = p1.y;
+		const float x2 = p2.x;
+		const float y2 = p2.y;
+		line.a = y2 - y1;
+		line.b = x1 - x2;
+		line.c = x2*y1 - x1*y2;
+		return line;
+	}
 }

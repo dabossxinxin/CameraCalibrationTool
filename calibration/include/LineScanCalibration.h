@@ -24,6 +24,95 @@ struct LineScanPara {
 	}
 };
 
+class FeaturesPointExtract {
+public:
+	/*默认构造函数*/
+	/*brief featuresNum:标定板上特征点的数量*/
+	/*brief featuresHeight:标定板平面真实高度*/
+	FeaturesPointExtract(const int featuresNum,const float featuresHeight) {
+		mFeaturesNum = featuresNum;
+		mFeatures2D.resize(mFeaturesNum,cv::Point2f(0.,0.));
+		mFeatures3D.resize(mFeaturesNum,cv::Point3f(0.,0.,featuresHeight));
+		mLineFunction2D.resize(mFeaturesNum,CommonStruct::LineFunction2D());
+	};
+	/*默认析构函数*/
+	~FeaturesPointExtract() {};
+	/*输入图像*/
+	/*Warning:图像指针在外部创建，在外部释放*/
+	void SetFeatureImage(unsigned char* const pImage, 
+						 const int width,
+						 const int height) 
+	{
+		mImageHeight = height;
+		mImageWidth = width;
+		mpFeatureImage = pImage;
+	}
+	/*设置标定板的参数*/
+	void SetCalibrationPara(const float& lineInterval, 
+							const float& lineLength) 
+	{
+		mLineLength = lineLength;
+		mLineInterval = lineInterval;
+	}
+	/*获取标定板的2D特征点*/
+	void Get2DPoints(std::vector<cv::Point2f>& features2D) {
+		features2D = mFeatures2D;
+	}
+	/*获取标定板的3D特征点*/
+	void Get3DPoints(std::vector<cv::Point3f>& features3D) {
+		features3D = mFeatures3D;
+	}
+
+	bool Update();
+
+private:
+	/*计算指定几个点的交比*/
+	/*brief 待计算交比的几个点*/
+	bool CrossRatio(const std::vector<cv::Point2f>&,float);
+
+	/*计算标定板上每条直线的直线方程*/
+	/*brief featuresNum:标定板中线段的数量*/
+	/*brief lineInterval:标定板上线段的间隔*/
+	/*brief lineLength:标定板上线段的长度*/
+	bool BoardLineFunction(const int featuresNum, 
+						   const float lineInterval,
+						   const float lineLength);
+
+	/*提取图像特征点的像素坐标*/
+	/*brief pImage:待提取特征的图像*/
+	/*brief width:待提取特征图像的像素宽度*/
+	/*brief height:待提取特征图像的像素高度*/
+	void CalculateFeatures2D(unsigned char* const pImage,
+							 const int width,
+							 const int height);
+
+	/*根据交比不变性计算斜线交点3D点坐标的X坐标部分*/
+	float DiagonalLine3DPoint(const std::vector<cv::Point2f>&,
+							  std::vector<cv::Point3f>&); 
+	
+private:
+	
+	unsigned char*	mpFeatureImage;
+	
+	int				mImageWidth;
+	
+	int				mImageHeight;
+
+	int				mFeaturesNum;
+
+	float			mLineLength;
+	
+	float			mLineInterval;
+
+	int				mCrossRatioPts = 4;
+
+	std::vector<CommonStruct::LineFunction2D>		mLineFunction2D;
+
+	std::vector<cv::Point2f>						mFeatures2D;
+	
+	std::vector<cv::Point3f>						mFeatures3D;
+};
+
 class LineScanCalibration {
 public:
 	/*默认构造函数*/
