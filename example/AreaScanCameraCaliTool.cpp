@@ -28,6 +28,8 @@ using namespace MtSpaceCircleSolver;
 using namespace MtSpaceLineSolver;
 using namespace MtStereoCalibration;
 
+/*面阵相机标定程序*/
+
 bool findCirclesCenter(const cv::Mat& img, const cv::Size& board_size, const cv::Size& square_size, std::vector<cv::Point2f>& corners)
 {
     cv::Size image_size;
