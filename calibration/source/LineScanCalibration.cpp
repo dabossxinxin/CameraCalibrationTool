@@ -14,8 +14,8 @@ bool FeaturesPointExtract::CrossRatio(const std::vector<cv::Point2f>& features,f
 float FeaturesPointExtract::DiagonalLine3DPoint(const std::vector<cv::Point2f>& features2D,
 											    std::vector<cv::Point3f>& features3D)
 {
-	if (features2D.size() != mCrossRatioPts) return;
-	if (features3D.size() != mCrossRatioPts) return;
+	if (features2D.size() != mCrossRatioPts) exit(-1);
+	if (features3D.size() != mCrossRatioPts) exit(-1);
 
 	const float x1 = features3D[0].x;
 	const float x2 = features3D[1].x;
