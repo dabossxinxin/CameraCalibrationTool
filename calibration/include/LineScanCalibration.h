@@ -66,6 +66,13 @@ public:
 	bool Update();
 
 private:
+	
+	/*初始化特征提取程序*/
+	/*1、3D特征点初始化*/
+	/*2、标定板直线参数初始化*/
+	/*3、提取标定板上的2D特征点*/
+	void Initialize();
+
 	/*计算指定几个点的交比*/
 	/*brief 待计算交比的几个点*/
 	bool CrossRatio(const std::vector<cv::Point2f>&,float);
@@ -78,6 +85,14 @@ private:
 						   const float lineInterval,
 						   const float lineLength);
 
+	/*初始化标定板中vertical line的X坐标*/
+	/*brief featuresNum:标定板中线段的数量*/
+	/*brief lineInterval:标定板上线段的间隔*/
+	/*brief lineLength:标定板上线段的长度*/
+	bool Features3DInitialize(const int featuresNum,
+							  const float lineInterval,
+							  const float lineLength);
+
 	/*提取图像特征点的像素坐标*/
 	/*brief pImage:待提取特征的图像*/
 	/*brief width:待提取特征图像的像素宽度*/
@@ -87,8 +102,11 @@ private:
 							 const int height);
 
 	/*根据交比不变性计算斜线交点3D点坐标的X坐标部分*/
-	float DiagonalLine3DPoint(const std::vector<cv::Point2f>&,
+	float DiagonalLine3DPointX(const std::vector<cv::Point2f>&,
 							  std::vector<cv::Point3f>&); 
+	/*根据交比不变性计算斜线交点3D坐标*/
+	void DiagonalLine3DPoints(const std::vector<cv::Point2f>&,
+							  std::vector<cv::Point3f>&);
 	
 private:
 	
