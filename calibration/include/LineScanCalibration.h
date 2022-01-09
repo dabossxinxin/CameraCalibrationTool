@@ -108,6 +108,9 @@ private:
 	void DiagonalLine3DPoints(const std::vector<cv::Point2f>&,
 							  std::vector<cv::Point3f>&);
 	
+	/*根据斜线特征点拟合的直线方程求解直线特征点*/
+	void VerticalLine3DPoints();
+	
 private:
 	
 	unsigned char*	mpFeatureImage;

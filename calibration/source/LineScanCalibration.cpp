@@ -137,6 +137,40 @@ void FeaturesPointExtract::CalculateFeatures2D(unsigned char* const pImage,
 	return;
 }
 
+void FeaturesPointExtract::VerticalLine3DPoints()
+{
+	if (mFeatures3D.size() != mFeaturesNum) exit(-1);
+	std::vector<cv::Point2f> diagonalLinePts;
+	diagonalLinePts.reserve(mFeaturesNum);
+	for (size_t it = 0; it < mFeaturesNum; ++it) {
+		if (it % 2 != 0) {
+			cv::Point2f pt(mFeatures3D[it].x, mFeatures3D[it].y);
+			diagonalLinePts.push_back(pt);
+		}
+	}
+	CommonStruct::LineFunction2D diagonalLine;
+	diagonalLine = CommonFunctions::ComputeLineFunction2D(diagonalLinePts);
+
+	//评定拟合直线的精度
+	std::vector<float> errors;
+	for (size_t it = 0; it < mFeaturesNum;++it) {
+		if (it % 2 != 0) {
+			cv::Point2f pt(mFeatures3D[it].x, mFeatures3D[it].y);
+			errors.push_back(CommonFunctions::ComputeDistanceFrom2DL2P(diagonalLine, pt));
+		}
+	}
+	float meanErr = CommonFunctions::Mean<float>(errors);
+	std::cout << "直线拟合的RMS为：" << meanErr << " mm" << std::endl;
+
+	for (size_t it = 0; it < mFeaturesNum; ++it) {
+		if (it % 2 == 0) {
+			cv::Point2f pt = CommonFunctions::ComputeIntersectionPt(mLineFunction2D[it], diagonalLine);
+			mFeatures3D[it].x = pt.x;
+			mFeatures3D[it].y = pt.y;
+		}
+	}
+}
+
 bool FeaturesPointExtract::Update()
 { 
 	//初始化
@@ -146,10 +180,8 @@ bool FeaturesPointExtract::Update()
 	this->DiagonalLine3DPoints(mFeatures2D, mFeatures3D);
 	
 	//通过斜线3D点坐标求解直线3D点坐标
+	this->VerticalLine3DPoints();
 
-	//使用diagonal line 3D特征点X、Y坐标拟合直线方程
-
-	//通过拟合的直线方程计算vertical line 3D特征点的Y坐标
 	return true;
 }
 
