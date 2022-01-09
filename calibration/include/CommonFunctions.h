@@ -26,5 +26,8 @@ namespace CommonFunctions
 	void ConditionPrint(const std::string&);
 
 	CommonStruct::LineFunction2D& ComputeLineFunction2D(const cv::Point2f& p1,const cv::Point2f& p2);
+	
+	/*使用一组2D点拟合直线方程，并评估直线方程的误差*/
+	CommonStruct::LineFunction2D& ComputeLineFunction2D(const std::vector<cv::Point2f>& pts);
 }
 

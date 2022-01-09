@@ -145,7 +145,7 @@ bool FeaturesPointExtract::Update()
 	//通过交比不变性计算diagonal line 3D特征点坐标
 	this->DiagonalLine3DPoints(mFeatures2D, mFeatures3D);
 	
-	//通过直线方程计算diagonal line 3D特征点的Y坐标
+	//通过斜线3D点坐标求解直线3D点坐标
 
 	//使用diagonal line 3D特征点X、Y坐标拟合直线方程
 

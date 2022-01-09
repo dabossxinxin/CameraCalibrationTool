@@ -42,4 +42,9 @@ namespace CommonFunctions
 		line.c = x2*y1 - x1*y2;
 		return line;
 	}
+
+	CommonStruct::LineFunction2D& ComputeLineFunction2D(const std::vector<cv::Point2f>& pts)
+	{
+
+	}
 }
