@@ -42,5 +42,8 @@ namespace CommonFunctions
 	/*计算数组的平均值*/
 	template <class T>
 	float Mean(std::vector<T>&);
+
+	/*灰度质心法*/
+	cv::Point2f& GrayScaleCentroid(const unsigned char* const, const std::vector<int>&, const int, const int);
 }
 

@@ -1,5 +1,6 @@
 #include "CommonFunctions.h"
 #include "LineScanCalibration.h"
+#include "GrowAllSpecifiedRegions.h"
 
 void FeaturesPointExtract::Initialize()
 {
@@ -12,11 +13,11 @@ void FeaturesPointExtract::Initialize()
 	const int imageSize = imageWidth*imageHeight;
 
 	//获取标定板上的2D特征点坐标
-	this->CalculateFeatures2D(mpFeatureImage, imageWidth, imageHeight);
+	this->CalculateFeatures2D();
 	//初始化3D点 vertical line上的X坐标
-	this->Features3DInitialize(featuresNum, lineInterval, lineLength);
+	this->Features3DInitialize();
 	//初始化标定板上所有直线的直线方程
-	this->BoardLineFunction(featuresNum, lineInterval, lineLength);
+	this->BoardLineFunction();
 }
 
 bool FeaturesPointExtract::CrossRatio(const std::vector<cv::Point2f>& features,float crossRatio) 
@@ -89,13 +90,11 @@ void FeaturesPointExtract::DiagonalLine3DPoints(const std::vector<cv::Point2f>& 
 	
 }
 
-bool FeaturesPointExtract::BoardLineFunction(const int featuresNum,
-											 const float lineInterval,
-											 const float lineLength)
+bool FeaturesPointExtract::BoardLineFunction()
 {
 	const int Num = mLineFunction2D.size();
-	if (Num != featuresNum) return false;
-	const float halfInterval = 0.5*lineInterval;
+	if (Num != mFeaturesNum) return false;
+	const float halfInterval = 0.5*mLineInterval;
 
 	for (size_t it = 0; it < Num; ++it) {
 		//vertical line
@@ -107,20 +106,18 @@ bool FeaturesPointExtract::BoardLineFunction(const int featuresNum,
 		//diagonal line
 		else {
 			cv::Point2f p1((it-1)*halfInterval,0.);
-			cv::Point2f p2((it+1)*halfInterval,lineLength);
+			cv::Point2f p2((it+1)*halfInterval,mLineLength);
 			mLineFunction2D[it] = CommonFunctions::ComputeLineFunction2D(p1, p2);
 		}
 	}
 	return true;
 }
 
-bool FeaturesPointExtract::Features3DInitialize(const int featuresNum,
-											    const float lineInterval,
-												const float lineLength)
+bool FeaturesPointExtract::Features3DInitialize()
 {
 	const int Num = mFeatures3D.size();
-	if (Num != featuresNum) return false;
-	const float halfInterval = 0.5*lineInterval;
+	if (Num != mFeaturesNum) return false;
+	const float halfInterval = 0.5*mLineInterval;
 
 	for (size_t it = 0; it < Num; ++it){
 		if (it % 2 == 0) {
@@ -130,10 +127,50 @@ bool FeaturesPointExtract::Features3DInitialize(const int featuresNum,
 	return true;
 }
 
-void FeaturesPointExtract::CalculateFeatures2D(unsigned char* const pImage,
-											   const int width,
-											   const int height)
+void FeaturesPointExtract::CalculateFeatures2D()
 {
+	//运行函数必要的参数
+	const int imageRow = mImageHeight;
+	const int imageCol = mImageWidth;
+
+	std::vector<std::vector<cv::Point2f>> features;
+	for (size_t it = 0; it < mImageHeight; ++it) {
+		std::vector<cv::Point2f> featuresPerLine;
+		//拿到图像一行像素
+		unsigned char* pOneRow = new unsigned char[mImageWidth];
+		memcpy(pOneRow, mpFeatureImage, sizeof(unsigned char)*mImageWidth);
+		//阈值分割寻找特征区域
+		std::vector<std::vector<int>> regions;
+		MtxGrowAllSpecifiedRegions grow;
+		grow.SetInputData(pOneRow,1,mImageWidth);
+		grow.SetLowerLimitVal(0);
+		grow.SetUpperLimitVal(128);
+		grow.Update();
+		regions = grow.GetSpecifiedRegions();
+		//灰度质心法求解特征点
+		const size_t reionsNum = regions.size();
+		for (size_t itRegions = 0; itRegions < reionsNum; ++itRegions) {
+			cv::Point2f tmpFeature = CommonFunctions::GrayScaleCentroid(pOneRow, 
+				regions[itRegions], 1, mImageWidth);
+			featuresPerLine.push_back(tmpFeature);
+		}
+		if (featuresPerLine.size() != mFeaturesNum) exit(-1);
+		features.push_back(featuresPerLine);
+		//析构一行图像像素指针
+		delete[] pOneRow; pOneRow = nullptr;
+	}
+
+	//求解每行同一位置的特征点均值
+	for (size_t i = 0; i < mFeaturesNum; ++i) {
+		float u = 0., v = 0.;
+		for (size_t j = 0; j < mImageHeight; ++j) {
+			u += features[j][i].y;
+			v += features[j][i].x;
+		}
+		u /= mImageHeight;
+		v /= mImageHeight;
+		mFeatures2D[i] = cv::Point2f(u, v);
+	}
 	return;
 }
 

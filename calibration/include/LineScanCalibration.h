@@ -78,28 +78,13 @@ private:
 	bool CrossRatio(const std::vector<cv::Point2f>&,float);
 
 	/*计算标定板上每条直线的直线方程*/
-	/*brief featuresNum:标定板中线段的数量*/
-	/*brief lineInterval:标定板上线段的间隔*/
-	/*brief lineLength:标定板上线段的长度*/
-	bool BoardLineFunction(const int featuresNum, 
-						   const float lineInterval,
-						   const float lineLength);
+	bool BoardLineFunction();
 
 	/*初始化标定板中vertical line的X坐标*/
-	/*brief featuresNum:标定板中线段的数量*/
-	/*brief lineInterval:标定板上线段的间隔*/
-	/*brief lineLength:标定板上线段的长度*/
-	bool Features3DInitialize(const int featuresNum,
-							  const float lineInterval,
-							  const float lineLength);
+	bool Features3DInitialize();
 
 	/*提取图像特征点的像素坐标*/
-	/*brief pImage:待提取特征的图像*/
-	/*brief width:待提取特征图像的像素宽度*/
-	/*brief height:待提取特征图像的像素高度*/
-	void CalculateFeatures2D(unsigned char* const pImage,
-							 const int width,
-							 const int height);
+	void CalculateFeatures2D();
 
 	/*根据交比不变性计算斜线交点3D点坐标的X坐标部分*/
 	float DiagonalLine3DPointX(const std::vector<cv::Point2f>&,

@@ -111,4 +111,21 @@ namespace CommonFunctions
 		}
 		return meanVal /= size;
 	}
+
+	cv::Point2f& GrayScaleCentroid(const unsigned char* const pImage, const std::vector<int>& roi, const int rows, const int cols)
+	{
+		if (pImage == nullptr) exit(-1);
+		if (roi.empty()) exit(-1);
+		const int size = roi.size();
+		float m10 = 0., m01 = 0., m00 = 0.;
+		for (size_t it = 0; it < size; ++it) {
+			const int imageRow = roi[it]/cols;
+			const int imageCol = roi[it]%cols;
+			m10 += imageCol*pImage[it];//x
+			m01 += imageRow*pImage[it];//y
+			m00 += pImage[it];
+		}
+		if (m00 == 0.) exit(-1);
+		return cv::Point2f(m10/m00, m01/m00);
+	}
 }
