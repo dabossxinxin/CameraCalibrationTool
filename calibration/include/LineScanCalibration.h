@@ -90,8 +90,7 @@ private:
 	float DiagonalLine3DPointX(const std::vector<cv::Point2f>&,
 							  std::vector<cv::Point3f>&); 
 	/*根据交比不变性计算斜线交点3D坐标*/
-	void DiagonalLine3DPoints(const std::vector<cv::Point2f>&,
-							  std::vector<cv::Point3f>&);
+	void DiagonalLine3DPoints();
 	
 	/*根据斜线特征点拟合的直线方程求解直线特征点*/
 	void VerticalLine3DPoints();
@@ -126,11 +125,11 @@ public:
 	/*默认析构函数*/
 	~LineScanCalibration() {};
 	/*输入相机所有3D特征点坐标*/
-	void SetObjectPoints(std::vector<std::vector<Eigen::Vector3f>>& object) {
+	void SetObjectPoints(std::vector<std::vector<cv::Point3f>>& object) {
 		mObjectPoints = object;
 	}
 	/*输入相机所有2D特征点坐标*/
-	void SetImagePoints(std::vector<std::vector<Eigen::Vector2f>>& points) {
+	void SetImagePoints(std::vector<std::vector<cv::Point2f>>& points) {
 		mImagePoints = points;
 	}
 	/*获取线扫相机标定参数*/
@@ -146,13 +145,15 @@ private:
 	/*通过非线性优化调优相机参数*/
 	bool OptimizeEstimate();
 
+	Eigen::MatrixXd skew(Eigen::MatrixXd& vec);
+
 private:
 	/*相机待标定参数*/
-	LineScanPara								mCameraPara;
+	LineScanPara							mCameraPara;
 	
 	/*世界坐标系特征点*/
-	std::vector<std::vector<Eigen::Vector3f>>	mObjectPoints;
+	std::vector<std::vector<cv::Point3f>>	mObjectPoints;
 	/*图像像素坐标系特征点*/
-	std::vector<std::vector<Eigen::Vector2f>>	mImagePoints;
-
+	std::vector<std::vector<cv::Point2f>>	mImagePoints;
+	                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
 };

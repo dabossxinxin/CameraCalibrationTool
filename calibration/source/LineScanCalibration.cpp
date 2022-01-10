@@ -47,11 +47,10 @@ float FeaturesPointExtract::DiagonalLine3DPointX(const std::vector<cv::Point2f>&
 	return (x4-rho*x3)/(1-rho);
 }
 
-void FeaturesPointExtract::DiagonalLine3DPoints(const std::vector<cv::Point2f>& imagePos,
-												std::vector<cv::Point3f>& worldPos)
+void FeaturesPointExtract::DiagonalLine3DPoints()
 {
-	if (imagePos.size() != mFeaturesNum) exit(-1);
-	if (worldPos.size() != mFeaturesNum) exit(-1);
+	if (mFeatures2D.size() != mFeaturesNum) exit(-1);
+	if (mFeatures3D.size() != mFeaturesNum) exit(-1);
 
 	for (size_t it = 0; it < mFeaturesNum; ++it) {
 		//diagonal line
@@ -214,7 +213,7 @@ bool FeaturesPointExtract::Update()
 	this->Initialize();
 	
 	//通过交比不变性计算diagonal line 3D特征点坐标
-	this->DiagonalLine3DPoints(mFeatures2D, mFeatures3D);
+	this->DiagonalLine3DPoints();
 	
 	//通过斜线3D点坐标求解直线3D点坐标
 	this->VerticalLine3DPoints();
@@ -248,8 +247,79 @@ bool LineScanCalibration::Update()
 
 bool LineScanCalibration::InitialEstimate() 
 {
-	CommonFunctions::ConditionPrint("Start Initial Estimate...");
+	//输出调试信息
+	CommonFunctions::ConditionPrint("Start Initial Estimate...");	
+	//函数运行前必进行的检查工作
+	if (mObjectPoints.size() != mImagePoints.size()){
+		std::cerr << "Object Points's Are Not Equal To Image Points's" << std::endl;
+		return false;
+	}
+	if (mObjectPoints.empty() || mImagePoints.empty()) {
+		std::cerr << "Features Points Is Empty" << std::endl;
+		return false;
+	}
+	//根据2D点与3D点的坐标，估计投影矩阵M
+	Eigen::MatrixXd sumPts(3,1); 
+	sumPts(0, 0) = sumPts(1, 0) = sumPts(2, 0) = 0.;
+	const int imagesNum = mObjectPoints.size();
+	const int featuresNum = mObjectPoints.begin()->size();
+	Eigen::MatrixXd C3(featuresNum*imagesNum, 3);
+	Eigen::MatrixXd C5(featuresNum*imagesNum, 5);
+	for (int i = 0; i < imagesNum; ++i) {
+		for (int j = 0; j < featuresNum; ++j) {
+			C3(i*featuresNum + j, 0) = double(-mImagePoints[i][j].y*mObjectPoints[i][j].x);
+			C3(i*featuresNum + j, 1) = double(-mImagePoints[i][j].y*mObjectPoints[i][j].y);
+			C3(i*featuresNum + j, 2) = double(-mImagePoints[i][j].y*mObjectPoints[i][j].z);
+			
+			C5(i*featuresNum + j, 0) = double(mObjectPoints[i][j].x);
+			C5(i*featuresNum + j, 1) = double(mObjectPoints[i][j].y);
+			C5(i*featuresNum + j, 2) = double(mObjectPoints[i][j].z);
+			C5(i*featuresNum + j, 3) = 1.0;
+			C5(i*featuresNum + j, 2) = double(mImagePoints[i][j].y);
+			
+			sumPts(0, 0) = sumPts(0 ,0) + double(mObjectPoints[i][j].x);
+			sumPts(1, 0) = sumPts(1, 0) + double(mObjectPoints[i][j].y);
+			sumPts(2, 0) = sumPts(2, 0) + double(mObjectPoints[i][j].z);
+		}
+	}
+	sumPts /= featuresNum*imagesNum;
+	Eigen::MatrixXd C3T = C3.transpose();
+	Eigen::MatrixXd C5T = C5.transpose();
+	Eigen::MatrixXd D = -C3T*C3 + C3T*C5*(C5T*C5).inverse()*C5T*C3;
+	/*最小特征值对应的特征向量*/
+	Eigen::EigenSolver<Eigen::Matrix<double, 3, 3>> es(D);
+	Eigen::MatrixXcd evecs = es.eigenvectors();
+	Eigen::MatrixXcd evals = es.eigenvalues();
+	Eigen::MatrixXd evalsReal = evals.real();
+	Eigen::MatrixXf::Index evalsMin;
+	evalsReal.rowwise().sum().minCoeff(&evalsMin);
+	Eigen::MatrixXd phi3 = Eigen::MatrixXd(3, 1);
+	phi3(0, 0) = evecs.real()(0, evalsMin);
+	phi3(1, 0) = evecs.real()(1, evalsMin);
+	phi3(2, 0) = evecs.real()(2, evalsMin);
+	Eigen::MatrixXd phi5 = -(C5T*C5).inverse()*C5T*C3*phi3;
+	/*特征值组成投影矩阵*/
+	Eigen::MatrixXd m3 = phi3;
+	float m24 = phi5(3,0), m34 = phi5(4,0);
+	Eigen::MatrixXd m2 = phi5.block(0, 0, 1, 3);
 
+	//根据投影矩阵M，估计出初始的线扫相机内参外参
+	Eigen::MatrixXd vc = m2.transpose()*m3;
+	mCameraPara.vc = vc(0, 0);
+	Eigen::MatrixXd Fy = m2.transpose()*skew(m3);
+	mCameraPara.Fy = Fy.norm();
+	Eigen::MatrixXd r2 = (m2-mCameraPara.vc*m3)/mCameraPara.Fy;
+	Eigen::MatrixXd r3 = m3;
+	Eigen::MatrixXd r1 = (r2.transpose()*skew(r3)).transpose();
+	mCameraPara.T(1,0) = (m24-mCameraPara.vc*m34)/mCameraPara.Fy;
+	mCameraPara.T(2,0) = m34;
+	Eigen::MatrixXd t1 = r1.transpose()*sumPts;
+	mCameraPara.T(0,0) = t1(0, 0);
+	if (mCameraPara.T(2, 0) < 0) {
+		std::cerr << "Initialize Error..." << std::endl;
+		return false;
+	}
+	//输出调试信息
 	CommonFunctions::ConditionPrint("End Initial Estimate");
 	return true;
 }
@@ -260,4 +330,16 @@ bool LineScanCalibration::OptimizeEstimate()
 
 	CommonFunctions::ConditionPrint("End Optimize Estimate");
 	return true;
+}
+
+Eigen::MatrixXd LineScanCalibration::skew(Eigen::MatrixXd& vec)
+{
+	const double x = vec(0, 0);
+	const double y = vec(1, 0);
+	const double z = vec(2, 0);
+	Eigen::MatrixXd res(3, 3);
+	res(0, 0) = 0; res(0, 1) = -z; res(0, 2) = y;
+	res(1, 0) = z; res(1, 1) = 0; res(1, 2) = -x;
+	res(2, 0) = -y; res(2, 1) = x; res(2, 2) = 0;
+	return res;
 }
