@@ -1,12 +1,9 @@
-#ifndef CERES_COSTFUN_H
-#define CERES_COSTFUN_H
+#pragma once
 
 #include <ceres/ceres.h>
 #include <ceres/rotation.h>
 
-
 using namespace ceres;
-
 
 struct HomographyCost2
 {
@@ -45,85 +42,7 @@ struct HomographyCost {
     const double x1, x2, y1, y2;
 };
 
-
-struct ProjectCost {
-
-    Eigen::Vector3d objPt;
-    Eigen::Vector2d imgPt;
-    const int mDistortionParaNum;
-
-    ProjectCost(Eigen::Vector3d& objPt, Eigen::Vector2d& imgPt, const int& paraNum):
-        objPt(objPt), imgPt(imgPt),mDistortionParaNum(paraNum){}
-
-    template<typename T>
-    bool operator()(
-        const T *const k,
-        const T *const r,
-        const T *const t,
-        T* residuals)const
-    {
-        T pos3d[3] = {T(objPt(0)), T(objPt(1)), T(objPt(2))};
-        T pos3d_proj[3];
-        // 旋转
-        ceres::AngleAxisRotatePoint(r, pos3d, pos3d_proj);
-        // 平移
-        pos3d_proj[0] += t[0];
-        pos3d_proj[1] += t[1];
-        pos3d_proj[2] += t[2];
-
-        T xp = pos3d_proj[0] / pos3d_proj[2];
-        T yp = pos3d_proj[1] / pos3d_proj[2];
-
-        T xdis = T(0.0);
-        T ydis = T(0.0);
-
-        const T& fx = k[0];
-        const T& fy = k[1];
-        const T& cx = k[2];
-        const T& cy = k[3];
-
-        if (mDistortionParaNum == 5)
-        {
-            const T& k1 = k[4];
-            const T& k2 = k[5];
-            const T& k3 = k[6];
-
-            const T& p1 = k[7];
-            const T& p2 = k[8];
-
-            // 径向畸变
-            T r_2 = xp * xp + yp * yp;
-
-            xdis = xp * (T(1.) + k1 * r_2 + k2 * r_2 * r_2 + k3 * r_2 * r_2 * r_2) + T(2.) * p1 * xp * yp + p2 * (r_2 + T(2.) * xp * xp);
-            ydis = yp * (T(1.) + k1 * r_2 + k2 * r_2 * r_2 + k3 * r_2 * r_2 * r_2) + p1 * (r_2 + T(2.) * yp * yp) + T(2.) * p2 * xp * yp;
-        }
-        else if (mDistortionParaNum == 4)
-        {
-            const T& k1 = k[4];
-            const T& k2 = k[5];
-
-            const T& p1 = k[6];
-            const T& p2 = k[7];
-
-            // 径向畸变
-            T r_2 = xp * xp + yp * yp;
-
-            xdis = xp * (T(1.) + k1 * r_2 + k2 * r_2 * r_2) + T(2.) * p1 * xp * yp + p2 * (r_2 + T(2.) * xp * xp);
-            ydis = yp * (T(1.) + k1 * r_2 + k2 * r_2 * r_2) + p1 * (r_2 + T(2.) * yp * yp) + T(2.) * p2 * xp * yp;
-        }
-       
-        
-        // 像素距离
-        T u = fx*xdis + cx;
-        T v = fy*ydis + cy;
-
-        residuals[0] = u - T(imgPt[0]);
-        residuals[1] = v - T(imgPt[1]);
-        return true;
-    }
-};
-
-
+/*仅优化旋转与平移的重投影代价结构*/
 struct ProjectCostRT {
 
     Eigen::Vector3d objPt;
@@ -166,7 +85,6 @@ struct ProjectCostRT {
     }
 };
 
-
 struct BundleAdjustment
 {
     double imgx;
@@ -207,4 +125,3 @@ struct BundleAdjustment
         return true;
     }
 };
-#endif

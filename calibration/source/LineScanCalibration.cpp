@@ -2,6 +2,8 @@
 #include "LineScanCalibration.h"
 #include "GrowAllSpecifiedRegions.h"
 
+#include "ceres/ceres.h"
+
 void FeaturesPointExtract::Initialize()
 {
 	//获取函数运行必要的参数
@@ -327,6 +329,28 @@ bool LineScanCalibration::InitialEstimate()
 bool LineScanCalibration::OptimizeEstimate() 
 {
 	CommonFunctions::ConditionPrint("Start Optimize Estimate...");
+	//函数运行前必进行的检查工作
+	if (mObjectPoints.size() != mImagePoints.size()) {
+		std::cerr << "Object Points's Are Not Equal To Image Points's" << std::endl;
+		return false;
+	}
+	if (mObjectPoints.empty() || mImagePoints.empty()) {
+		std::cerr << "Features Points Is Empty" << std::endl;
+		return false;
+	}
+	//根据2D点与3D点的坐标，估计投影矩阵M
+	const int imagesNum = mObjectPoints.size();
+	const int featuresNum = mObjectPoints.begin()->size();
+	//待优化的相机内参以及畸变参数
+	double k[5] = { mCameraPara.Fy,mCameraPara.vc,mCameraPara.k1,mCameraPara.k2,mCameraPara.k3 };
+	for (int i = 0; i < imagesNum; ++i) {
+		for (int j = 0; j < featuresNum; ++j) {
+			/*ceres::CostFunction* cost = new ceres::AutoDiffCostFunction<LineScanProjectCost, 2, 5, 3, 3>(
+				new LineScanProjectCost(mObjectPoints[i][j], mImagePoints[i][j]);
+				)*/
+		}
+	}
+	
 
 	CommonFunctions::ConditionPrint("End Optimize Estimate");
 	return true;

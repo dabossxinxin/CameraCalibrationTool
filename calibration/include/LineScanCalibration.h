@@ -24,6 +24,52 @@ struct LineScanPara {
 	}
 };
 
+/*线扫相机重投影代价结构*/
+struct LineScanProjectCost {
+	Eigen::Vector3d objPt;
+	Eigen::Vector2d imgPt;
+	/*构造函数*/
+	LineScanProjectCost(Eigen::Vector3d& objPt, Eigen::Vector2d& imgPt) :objPt(objPt), imgPt(imgPt) {}
+	/*重载()操作符*/
+	template <class T>
+	bool operator()(
+		const T* const k,
+		const T* const r,
+		const T* const t,
+		T* residuals) const{
+		T pos3d[3] = { T(objPt(0)),T(objPt(1)),T(objPt(2)) };
+		T pos3d_proj[3] = { T(0.),T(0.),T(0.) };
+		//旋转
+		ceres::AngleAxisRotatePoint(r, pos3d, pos3d_proj);
+		//平移
+		pos3d_proj[0] += t[0];
+		pos3d_proj[1] += t[1];
+		pos3d_proj[2] += t[2];
+		T xp = pos3d_proj[0] / pos3d_proj[2];
+		T yp = pos3d_proj[1] / pos3d_proj[2];
+		T xdis = T(0.0);
+		T ydis = T(0.0);
+		//线扫相机内参
+		const T& fx = 1.;
+		const T& cx = 0.;
+		const T& fy = k[0];
+		const T& cy = k[1];
+		//线扫相机畸变参数
+		const T& k1 = k[2];
+		const T& k2 = k[3];
+		const T& k3 = k[4];
+		//添加径向畸变与切向畸变的影响
+		xdis = xp;
+		ydis = yp + k1*yp*yp*yp + k2*yp*yp*yp*yp*yp + k3*yp*yp;
+		// 像素距离
+		T u = fx*xdis + cx;
+		T v = fy*ydis + cy;
+		residuals[0] = u - T(imgPt(0));
+		residuals[1] = v - T(imgPt(1));
+		return true;
+	}
+};
+
 class FeaturesPointExtract {
 public:
 	/*默认构造函数*/
