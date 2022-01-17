@@ -1,8 +1,13 @@
 #pragma once
 
 #include <Eigen/Core>
+#include <Eigen/SVD>
+#include <Eigen/Dense>
 #include <iostream>
 #include <vector>
+
+#include "ceres/ceres.h"
+#include "ceres/rotation.h"
 
 /*reference:Sun B,Zhu J,Yang L,et al.Calibration of line-scan 
 cameras for precision measurement[J].Applied Optics,2016.*/
@@ -26,10 +31,10 @@ struct LineScanPara {
 
 /*线扫相机重投影代价结构*/
 struct LineScanProjectCost {
-	Eigen::Vector3d objPt;
-	Eigen::Vector2d imgPt;
+	cv::Point3f objPt;
+	cv::Point2f imgPt;
 	/*构造函数*/
-	LineScanProjectCost(Eigen::Vector3d& objPt, Eigen::Vector2d& imgPt) :objPt(objPt), imgPt(imgPt) {}
+	LineScanProjectCost(cv::Point3f& objPt, cv::Point2f& imgPt) :objPt(objPt), imgPt(imgPt) {}
 	/*重载()操作符*/
 	template <class T>
 	bool operator()(
@@ -37,7 +42,7 @@ struct LineScanProjectCost {
 		const T* const r,
 		const T* const t,
 		T* residuals) const{
-		T pos3d[3] = { T(objPt(0)),T(objPt(1)),T(objPt(2)) };
+		T pos3d[3] = { T(objPt.x),T(objPt.y),T(objPt.z) };
 		T pos3d_proj[3] = { T(0.),T(0.),T(0.) };
 		//旋转
 		ceres::AngleAxisRotatePoint(r, pos3d, pos3d_proj);
@@ -50,8 +55,8 @@ struct LineScanProjectCost {
 		T xdis = T(0.0);
 		T ydis = T(0.0);
 		//线扫相机内参
-		const T& fx = 1.;
-		const T& cx = 0.;
+		const T& fx = T(1.);
+		const T& cx = T(0.);
 		const T& fy = k[0];
 		const T& cy = k[1];
 		//线扫相机畸变参数
@@ -64,8 +69,8 @@ struct LineScanProjectCost {
 		// 像素距离
 		T u = fx*xdis + cx;
 		T v = fy*ydis + cy;
-		residuals[0] = u - T(imgPt(0));
-		residuals[1] = v - T(imgPt(1));
+		residuals[0] = u - T(imgPt.x);
+		residuals[1] = v - T(imgPt.y);
 		return true;
 	}
 };
@@ -190,16 +195,27 @@ private:
 	bool InitialEstimate();
 	/*通过非线性优化调优相机参数*/
 	bool OptimizeEstimate();
+	/*计算相机的分辨率与置信度*/
+	bool Resolution();
 
 	Eigen::MatrixXd skew(Eigen::MatrixXd& vec);
-
+	/*将旋转矩阵转化为旋转向量*/
+	Eigen::Vector3f RotationMatrix2Vector(const Eigen::Matrix3f&);
+	/*将旋转向量转化为旋转矩阵*/
+	Eigen::Matrix3d RotationVector2Matrix(const Eigen::Vector3d&);
+	/*将double类型的矩阵转化为float类型的矩阵*/
+	Eigen::Matrix3f Matrixd2f(const Eigen::Matrix3d&);
 private:
 	/*相机待标定参数*/
 	LineScanPara							mCameraPara;
 	
 	/*世界坐标系特征点*/
 	std::vector<std::vector<cv::Point3f>>	mObjectPoints;
+	/*去除畸变后的世界坐标系特征点*/
+	std::vector<std::vector<cv::Point3f>>	mObjectPointsDeDis;
 	/*图像像素坐标系特征点*/
 	std::vector<std::vector<cv::Point2f>>	mImagePoints;
+	/*去除畸变后的图像像素坐标系特征点*/
+	std::vector<std::vector<cv::Point2f>>	mImagePointsDeDis;
 	                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
 };

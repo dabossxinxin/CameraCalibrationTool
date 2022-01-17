@@ -2,8 +2,6 @@
 #include "LineScanCalibration.h"
 #include "GrowAllSpecifiedRegions.h"
 
-#include "ceres/ceres.h"
-
 void FeaturesPointExtract::Initialize()
 {
 	//获取函数运行必要的参数
@@ -338,22 +336,81 @@ bool LineScanCalibration::OptimizeEstimate()
 		std::cerr << "Features Points Is Empty" << std::endl;
 		return false;
 	}
-	//根据2D点与3D点的坐标，估计投影矩阵M
+	//获取待优化的参数
 	const int imagesNum = mObjectPoints.size();
 	const int featuresNum = mObjectPoints.begin()->size();
+	Eigen::Matrix3f R = mCameraPara.R;
+	Eigen::Vector3f rf = this->RotationMatrix2Vector(R);
+	Eigen::Vector3f T = mCameraPara.T;
+	Eigen::Vector3d r; r << rf(0), rf(1), rf(2);
+	Eigen::Vector3d t; t << T(0), T(1), T(2);
 	//待优化的相机内参以及畸变参数
+	ceres::Problem problem;
 	double k[5] = { mCameraPara.Fy,mCameraPara.vc,mCameraPara.k1,mCameraPara.k2,mCameraPara.k3 };
 	for (int i = 0; i < imagesNum; ++i) {
 		for (int j = 0; j < featuresNum; ++j) {
-			/*ceres::CostFunction* cost = new ceres::AutoDiffCostFunction<LineScanProjectCost, 2, 5, 3, 3>(
-				new LineScanProjectCost(mObjectPoints[i][j], mImagePoints[i][j]);
-				)*/
+			ceres::CostFunction* cost = new ceres::AutoDiffCostFunction<LineScanProjectCost, 2, 5, 3, 3>(
+				new LineScanProjectCost(mObjectPoints[i][j], mImagePoints[i][j]));
+			problem.AddResidualBlock(cost, nullptr, k, r.data(), t.data());
 		}
 	}
-	
+	std::cout << "开始非线性优化..." << std::endl;
+	ceres::Solver::Options options;
+	options.minimizer_progress_to_stdout = false;
+	options.linear_solver_type = ceres::DENSE_SCHUR;
+	options.trust_region_strategy_type = ceres::TrustRegionStrategyType::LEVENBERG_MARQUARDT;
+	options.preconditioner_type = ceres::JACOBI;
+	options.max_num_iterations = 1000;
+	options.sparse_linear_algebra_library_type = ceres::EIGEN_SPARSE;
+	options.function_tolerance = 1e-16;
+	options.gradient_tolerance = 1e-10;
+	ceres::Solver::Summary summary;
+	ceres::Solve(options, &problem, &summary);
 
+	if (!summary.IsSolutionUsable()){
+		std::cerr << "非线性优化失败..." << std::endl;
+	}
+	else {
+		/*打印非线性优化的相关信息*/
+		std::cout << std::endl
+			<< " Bundle Adjustment Statistics (Approximated RMSE):\n"
+			<< " #views: " << imagesNum << "\n"
+			<< " #residuals: " << summary.num_residuals << "\n"
+			<< " #num_parameters: " << summary.num_parameters << "\n"
+			<< " #num_parameter_blocks: " << summary.num_parameter_blocks << "\n"
+			<< " #Initial RMSE: " << std::sqrt(summary.initial_cost / summary.num_residuals) << "\n"
+			<< " #Final RMSE: " << std::sqrt(summary.final_cost / summary.num_residuals) << "\n"
+			<< " #Time (s): " << summary.total_time_in_seconds << "\n"
+			<< std::endl;
+		/*确定线扫相机标定参数*/
+		mCameraPara.Fy = k[0];
+		mCameraPara.vc = k[1];
+		mCameraPara.k1 = k[2];
+		mCameraPara.k2 = k[3];
+		mCameraPara.k3 = k[4];
+		//mCameraPara.R = this->Matrixd2f(this->RotationVector2Matrix(r));
+		//mCameraPara.T << t(0), t(1), t(3);
+	}
 	CommonFunctions::ConditionPrint("End Optimize Estimate");
 	return true;
+}
+
+bool LineScanCalibration::Resolution()
+{
+	const float k1 = mCameraPara.k1;
+	const float k2 = mCameraPara.k2;
+	const float k3 = mCameraPara.k3;
+	const float fx = 1.;
+	const float fy = mCameraPara.Fy;
+	const float cx = 0.;
+	const float cy = mCameraPara.vc;
+	const int imageSize = mImagePoints.size();
+	const int featuresSize = mImagePoints.begin()->size();
+	for (int i = 0; i < imageSize; ++i) {
+		for (int j = 0; j < featuresSize; ++j) {
+			
+		}
+	}
 }
 
 Eigen::MatrixXd LineScanCalibration::skew(Eigen::MatrixXd& vec)
@@ -366,4 +423,28 @@ Eigen::MatrixXd LineScanCalibration::skew(Eigen::MatrixXd& vec)
 	res(1, 0) = z; res(1, 1) = 0; res(1, 2) = -x;
 	res(2, 0) = -y; res(2, 1) = x; res(2, 2) = 0;
 	return res;
+}
+
+Eigen::Vector3f LineScanCalibration::RotationMatrix2Vector(const Eigen::Matrix3f& R)
+{
+	Eigen::AngleAxisf r;
+	r.fromRotationMatrix(R);
+	return r.angle()*r.axis();
+}
+
+Eigen::Matrix3d LineScanCalibration::RotationVector2Matrix(const Eigen::Vector3d& v)
+{
+	double s = std::sqrt(v.dot(v));
+	Eigen::Vector3d axis = v / s;
+	Eigen::AngleAxisd r(s, axis);
+	return r.toRotationMatrix();
+}
+
+Eigen::Matrix3f LineScanCalibration::Matrixd2f(const Eigen::Matrix3d& matrix) 
+{
+	Eigen::Matrix3f matrix3f;
+	matrix3f << matrix(0, 0), matrix(0, 1), matrix(0, 2),
+		matrix(1, 0), matrix(1, 1), matrix(1, 2),
+		matrix(2, 0), matrix(2, 1), matrix(2, 2);
+	return matrix3f;
 }
