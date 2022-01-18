@@ -20,6 +20,22 @@ void FeaturesPointExtract::Initialize()
 	this->BoardLineFunction();
 }
 
+void FeaturesPointExtract::InitializeWithFeatures()
+{
+	//获取函数运行必要的参数
+	const int featuresNum = this->mFeaturesNum;
+	const float lineInterval = this->mLineInterval;
+	const float lineLength = this->mLineLength;
+	const int imageWidth = this->mImageWidth;
+	const int imageHeight = this->mImageHeight;
+	const int imageSize = imageWidth*imageHeight;
+
+	//初始化3D点 vertical line上的X坐标
+	this->Features3DInitialize();
+	//初始化标定板上所有直线的直线方程
+	this->BoardLineFunction();
+}
+
 bool FeaturesPointExtract::CrossRatio(const std::vector<cv::Point2f>& features,float crossRatio) 
 {
 	if (features.size() != mCrossRatioPts) return false;
@@ -221,6 +237,20 @@ bool FeaturesPointExtract::Update()
 	return true;
 }
 
+bool FeaturesPointExtract::UpdateWithFeatures()
+{
+	//初始化
+	this->InitializeWithFeatures();
+
+	//通过交比不变性计算diagonal line 3D特征点坐标
+	this->DiagonalLine3DPoints();
+
+	//通过斜线3D点坐标求解直线3D点坐标
+	this->VerticalLine3DPoints();
+
+	return true;
+}
+
 bool LineScanCalibration::Update() 
 {
 	// 判断参数是否正确输入
@@ -388,8 +418,8 @@ bool LineScanCalibration::OptimizeEstimate()
 		mCameraPara.k1 = k[2];
 		mCameraPara.k2 = k[3];
 		mCameraPara.k3 = k[4];
-		//mCameraPara.R = this->Matrixd2f(this->RotationVector2Matrix(r));
-		//mCameraPara.T << t(0), t(1), t(3);
+		mCameraPara.R = this->Matrixd2f(this->RotationVector2Matrix(r));
+		mCameraPara.T << t(0), t(1), t(3);
 	}
 	CommonFunctions::ConditionPrint("End Optimize Estimate");
 	return true;
@@ -407,10 +437,64 @@ bool LineScanCalibration::Resolution()
 	const int imageSize = mImagePoints.size();
 	const int featuresSize = mImagePoints.begin()->size();
 	for (int i = 0; i < imageSize; ++i) {
+		std::vector<cv::Point2f> imagePoints;
 		for (int j = 0; j < featuresSize; ++j) {
-			
+			/*计算归一化相机坐标系的坐标*/
+			cv::Point3f pt;
+			pt.z = 1.0;
+			pt.x = mImagePoints[i][j].x;
+			pt.y = (mImagePoints[i][j].x - cy)/fy;
+			float xdis = 0., ydis = 0.;
+			xdis = pt.x;
+			ydis = pt.y+k1*pt.y*pt.y*pt.y+k2*pt.y*pt.y*pt.y*pt.y*pt.y+k3*pt.y*pt.y;
+			cv::Point2f ptDeDis;
+			ptDeDis.x = pt.x/pt.z;
+			ptDeDis.y = fy*pt.y/pt.z+cy;
+			imagePoints.push_back(ptDeDis);
+		}
+		mImagePointsDeDis.push_back(imagePoints);
+	}
+	//通过交比不变性重新构造3D特征点
+	for (int it = 0; it < imageSize; ++it) {
+		float featuresHeight = mObjectPoints[it].begin()->z;
+		std::vector<cv::Point3f> features3D;
+		FeaturesPointExtract featuresExtract(mImagePointsDeDis[it], featuresSize, featuresHeight);
+		featuresExtract.SetCalibrationPara(10., 40.);
+		featuresExtract.UpdateWithFeatures();
+		featuresExtract.Get3DPoints(features3D);
+		mObjectPointsDeDis.push_back(features3D);
+	}
+
+	//计算相机的分辨率
+	std::vector<std::vector<float>> resolutions;
+	for (int i = 0; i < imageSize; ++i) {
+		std::vector<float> resolution;
+		for (int j = 0; j < featuresSize-1; ++j) {
+			int idCur = j;int idNext = j + 1;
+			const cv::Point2f p12D = mImagePointsDeDis[i][idCur];
+			const cv::Point2f p22D = mImagePointsDeDis[i][idNext];
+			const cv::Point3f p13D = mObjectPointsDeDis[i][idCur];
+			const cv::Point3f p23D = mObjectPointsDeDis[i][idNext];
+			float dis2D = CommonFunctions::ComputeDistanceP2P(p12D, p22D);
+			float dis3D = CommonFunctions::ComputeDistanceP2P(p13D, p23D);
+			resolution.push_back(dis3D/dis2D);
+		}
+		resolutions.push_back(resolution);
+	}
+
+	float threshold = 0.01;
+	std::vector<float> resolution;
+	for (int i = 0; i < imageSize; ++i) {
+		if (!resolutions.empty()) {
+			std::sort(resolutions[i].begin(), resolutions[i].end());
+			int start = 0; int end = resolutions[i].size() - 1;
+			if (abs(resolutions[i][start] - resolutions[i][end]) > threshold) {
+				mCameraPara.Conf = false;
+			}
+			resolution.push_back(CommonFunctions::Average(resolutions[i]));
 		}
 	}
+	mCameraPara.resY = CommonFunctions::Average(resolution);
 }
 
 Eigen::MatrixXd LineScanCalibration::skew(Eigen::MatrixXd& vec)

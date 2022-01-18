@@ -45,5 +45,12 @@ namespace CommonFunctions
 
 	/*灰度质心法*/
 	cv::Point2f& GrayScaleCentroid(const unsigned char* const, const std::vector<int>&, const int, const int);
+
+	/*计算两点之间的距离*/
+	float ComputeDistanceP2P(const cv::Point2f&, const cv::Point2f&);
+	float ComputeDistanceP2P(const cv::Point3f&, const cv::Point3f&);
+
+	/*计算数组的平均值*/
+	float Average(const std::vector<float>&);
 }
 

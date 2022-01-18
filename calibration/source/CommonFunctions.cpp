@@ -128,4 +128,31 @@ namespace CommonFunctions
 		if (m00 == 0.) exit(-1);
 		return cv::Point2f(m10/m00, m01/m00);
 	}
+
+	float ComputeDistanceP2P(const cv::Point2f& p1, const cv::Point2f& p2)
+	{
+		const float dx = p1.x - p2.x;
+		const float dy = p1.y - p2.y;
+		return std::sqrt(dx*dx+dy*dy);
+	}
+
+	float ComputeDistanceP2P(const cv::Point3f& p1, const cv::Point3f& p2)
+	{
+		const float dx = p1.x - p2.x;
+		const float dy = p1.y - p2.y;
+		const float dz = p1.z - p2.z;
+		return std::sqrt(dx*dx+dy*dy+dz*dz);
+	}
+
+	float Average(const std::vector<float>& vec)
+	{
+		if (vec.empty()) return -1;
+		float average = 0.;
+		const int size = vec.size();
+		for (int it = 0; it < size; ++it) {
+			average += vec[it];
+		}
+		average /= size;
+		return average;
+	}
 }

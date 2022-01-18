@@ -86,6 +86,13 @@ public:
 		mFeatures3D.resize(mFeaturesNum,cv::Point3f(0.,0.,featuresHeight));
 		mLineFunction2D.resize(mFeaturesNum,CommonStruct::LineFunction2D());
 	};
+	/*图像特征点去畸变后使用该构造函数优化3D点*/
+	FeaturesPointExtract(const std::vector<cv::Point2f>& features2D, const int featuresNum, const float featuresHeight) {
+		mFeaturesNum = featuresNum;
+		mFeatures2D = features2D;
+		mFeatures3D.resize(mFeaturesNum, cv::Point3f(0.,0.,featuresHeight));
+		mLineFunction2D.resize(mFeaturesNum, CommonStruct::LineFunction2D());
+	}
 	/*默认析构函数*/
 	~FeaturesPointExtract() {};
 	/*输入图像*/
@@ -113,8 +120,12 @@ public:
 	void Get3DPoints(std::vector<cv::Point3f>& features3D) {
 		features3D = mFeatures3D;
 	}
-
+	
+	/*2D特征点未知时调用该函数*/
 	bool Update();
+
+	/*已知2D特征点时调用该函数*/
+	bool UpdateWithFeatures();
 
 private:
 	
@@ -123,6 +134,11 @@ private:
 	/*2、标定板直线参数初始化*/
 	/*3、提取标定板上的2D特征点*/
 	void Initialize();
+
+	/*初始化特征提取程序*/
+	/*1、3D特征点初始化*/
+	/*2、标定板直线参数初始化*/
+	void InitializeWithFeatures();
 
 	/*计算指定几个点的交比*/
 	/*brief 待计算交比的几个点*/
@@ -172,7 +188,9 @@ private:
 class LineScanCalibration {
 public:
 	/*默认构造函数*/
-	LineScanCalibration() {};
+	LineScanCalibration() {
+		mCameraPara.Conf = true;
+	};
 	/*默认析构函数*/
 	~LineScanCalibration() {};
 	/*输入相机所有3D特征点坐标*/
