@@ -142,8 +142,6 @@ EDLineDetector::~EDLineDetector()
 		delete [] pFirstPartEdgeS_;
 		delete [] pSecondPartEdgeS_;
 	}
-
-
 }
 
 int EDLineDetector::EdgeDrawing(cv::Mat const &image, EdgeChains &edgeChains, bool smoothed )

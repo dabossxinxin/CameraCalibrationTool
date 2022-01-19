@@ -11,141 +11,137 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
 
-struct Pixel
-{
-	unsigned int x; //X coordinate
-	unsigned int y; //Y coordinate
+struct Pixel {
+	unsigned int x; //图像x轴像素坐标
+	unsigned int y; //图像y轴像素坐标
 };
-struct EdgeChains
-{
-	std::vector<unsigned int> xCors;//all the x coordinates of edge points
-	std::vector<unsigned int> yCors;//all the y coordinates of edge points
-	std::vector<unsigned int> sId;  //the start index of each edge in the coordinate arrays
-	unsigned int numOfEdges;        //the number of edges whose length are larger than minLineLen; numOfEdges < sId.size;
+struct EdgeChains {
+	std::vector<unsigned int> xCors;//边界点的x轴坐标
+	std::vector<unsigned int> yCors;//边界点的y轴坐标
+	std::vector<unsigned int> sId;  //边界点的像素索引
+	unsigned int numOfEdges;        //边界像素数量; numOfEdges < sId.size;
 };
-struct LineChains
-{
-	std::vector<unsigned int> xCors;//all the x coordinates of line points
-	std::vector<unsigned int> yCors;//all the y coordinates of line points
-	std::vector<unsigned int> sId;  //the start index of each line in the coordinate arrays
-	unsigned int numOfLines;        //the number of lines whose length are larger than minLineLen; numOfLines < sId.size;
+struct LineChains {
+	std::vector<unsigned int> xCors;//直线上点x坐标
+	std::vector<unsigned int> yCors;//直线上点y坐标
+	std::vector<unsigned int> sId;  //直线上点像素索引值
+	unsigned int numOfLines;        //直线上像素点数量; numOfLines < sId.size;
 };
 
 typedef  std::list<Pixel> PixelChain;//each edge is a pixel chain
 
 
-struct EDLineParam
-{
-	int 	ksize;
-	float 	sigma;
-	float 	gradientThreshold;
-	float 	anchorThreshold;
-	int 	scanIntervals;
-	int 	minLineLen;
-	double 	lineFitErrThreshold;
+struct EDLineParam {
+	int 	ksize;					//TODO高斯滤波平滑窗口
+	float 	sigma;					//TODO高斯滤波平滑阈值
+	float 	gradientThreshold;		//图像梯度阈值
+	float 	anchorThreshold;		//提取锚点的阈值
+	int 	scanIntervals;			//锚点采样分辨率
+	int 	minLineLen;				//提取直线的最短像素长度
+	double 	lineFitErrThreshold;	//提取直线时
+	EDLineParam() {
+		ksize = 5;
+		sigma = 1;
+	}
 };
 
 #define RELATIVE_ERROR_FACTOR   100.0
 #define M_LN10   2.30258509299404568402
 #define log_gamma(x)    ((x)>15.0?log_gamma_windschitl(x):log_gamma_lanczos(x))
 
-/* This class is used to detect lines from input image.
- * First, edges are extracted from input image following the method presented in Cihan Topal and
- * Cuneyt Akinlar's paper:"Edge Drawing: A Heuristic Approach to Robust Real-Time Edge Detection", 2010.
- * Then, lines are extracted from the edge image following the method presented in Cuneyt Akinlar and
- * Cihan Topal's paper:"EDLines: A real-time line segment detector with a false detection control", 2011
- * PS: The linking step of edge detection has a little bit difference with the Edge drawing algorithm
- *     described in the paper. The edge chain doesn't stop when the pixel direction is changed.
- */
+/*Reference:EDLines: A real-time line segment detector with a false detection control*/
+/*brief: 用于从图像中提取直线信息*/
+/*1、提取图像边界信息*/
+/*2、提取边界信息中的直线信息*/
+/*Warning:与论文中的不同之处在于像素方向发生改变时直线提取器不停止*/
 class EDLineDetector
 {
 public:
+	/*默认构造函数*/
 	EDLineDetector();
+	/*带配置参数的构造函数*/
 	EDLineDetector(EDLineParam param);
+	/*默认析构函数*/
 	~EDLineDetector();
-
-	/*extract edges from image
-	 *image:    In, gray image;
-	 *edges:    Out, store the edges, each edge is a pixel chain
-	 *smoothed: In, flag to mark whether the image has already been smoothed by Gaussian filter.
-	 *return -1: error happen
-	 */
+	/*提取图像中的边界*/
+	/*image:	In：灰度图像;*/
+	/*edges:	Out：保存边界*/
+	/*smoothed: In：是否对图像进行高斯平滑*/
+	/*return -1: error happen*/
 	int EdgeDrawing(cv::Mat const &image, EdgeChains &edgeChains, bool smoothed = false);
-	/*extract lines from image
-	 *image:    In, gray image;
-	 *lines:    Out, store the extracted lines,
-	 *smoothed: In, flag to mark whether the image has already been smoothed by Gaussian filter.
-	 *return -1: error happen
-	 */
+	/*提取图像中的直线*/
+	/*image:    In：灰度图像;*/
+	/*lines:    Out：保存直线*/
+	/*smoothed: In：是否对图像进行高斯平滑*/
+	/*return -1: error happen*/
 	int EDline(cv::Mat const &image, LineChains &lines, bool smoothed = false);
-	/*extract line from image, and store them*/
+	/*提取图像中的直线*/
+	/*image:    In：灰度图像;*/
+	/*smoothed: In：是否对图像进行高斯平滑*/
+	/*return -1: error happen*/
 	int EDline(cv::Mat const &image, bool smoothed = false);
 
-	cv::Mat dxImg_;//store the dxImg;
-	cv::Mat dyImg_;//store the dyImg;
-	cv::Mat gImgWO_;//store the gradient image without threshold;
-	LineChains lines_; //store the detected line chains;
-	//store the line Equation coefficients, vec3=[w1,w2,w3] for line w1*x + w2*y + w3=0;
+private:
+	cv::Mat dxImg_;//存储x方向的梯度信息
+	cv::Mat dyImg_;//存储y方向的梯度信息
+	cv::Mat gImgWO_;//存储图像原始梯度信息
+	LineChains lines_; //存储提取得到的直线信息
+	//存储提取到的直线的直线方程[a,b,c]
 	std::vector<std::array<double, 3> > lineEquations_;
-	//store the line endpoints, [x1,y1,x2,y3]
+	//存储提取到的直线的两个端点[x1,y1,x2,y2]
 	std::vector<std::array<float, 4> > lineEndpoints_;
-	//store the line direction
+	//存储提取到的直线的方向
 	std::vector<float>  lineDirection_;
-	//store the line ::salience, which is the summation of gradients of pixels on line
+	//存储提取到的直线是否可信的参数
 	std::vector<float>  lineSalience_;
-	unsigned int imageWidth;
-	unsigned int imageHeight;
+	unsigned int imageWidth;//输入图像的宽度
+	unsigned int imageHeight;//输入图像的高度
 
 private:
+	/*初始化EDLine提取器*/
 	void InitEDLine_();
-	/*For an input edge chain, find the best fit line, the default chain length is minLineLen_
-	 *xCors:  In, pointer to the X coordinates of pixel chain;
-	 *yCors:  In, pointer to the Y coordinates of pixel chain;
-	 *offsetS:In, start index of this chain in array;
-	 *lineEquation: Out, [a,b] which are the coefficient of lines y=ax+b(horizontal) or x=ay+b(vertical);
-	 *return:  line fit error; -1:error happens;
-	 */
-	double LeastSquaresLineFit_(unsigned int *xCors, unsigned int *yCors,
-	                            unsigned int offsetS,   std::array<double, 2> &lineEquation);
-	/*For an input pixel chain, find the best fit line. Only do the update based on new points.
-	 *For A*x=v,  Least square estimation of x = Inv(A^T * A) * (A^T * v);
-	 *If some new observations are added, i.e, [A; A'] * x = [v; v'],
-	 *then x' = Inv(A^T * A + (A')^T * A') * (A^T * v + (A')^T * v');
-	 *xCors:  In, pointer to the X coordinates of pixel chain;
-	 *yCors:  In, pointer to the Y coordinates of pixel chain;
-	 *offsetS:In, start index of this chain in array;
-	 *newOffsetS: In, start index of extended part;
-	 *offsetE:In, end index of this chain in array;
-	 *lineEquation: Out, [a,b] which are the coefficient of lines y=ax+b(horizontal) or x=ay+b(vertical);
-	 *return:  line fit error; -1:error happens;
-	 */
+	/*最小二乘拟合直线*/
+	/*xCors:  In：像素集合的x坐标*/
+	/*yCors:  In：像素集合的y坐标*/
+	/*offsetS:In：像素起始索引值*/
+	/*lineEquation: Out：[a,b] y=ax+b(水平方向) or x=ay+b(竖直方向)*/
+	/*return: 直线拟合误差; -1:error happens*/
+	double LeastSquaresLineFit_(unsigned int *xCors,unsigned int *yCors,
+								unsigned int offsetS,std::array<double,2>& lineEquation);
+	/*For an input pixel chain, find the best fit line. Only do the update based on new point*/
+	/*For A*x=v,  Least square estimation of x = Inv(A^T * A) * (A^T * v)*/
+	/*If some new observations are added, i.e, [A; A'] * x = [v; v']*/
+	/*then x' = Inv(A^T * A + (A')^T * A') * (A^T * v + (A')^T * v')*/
+	/*xCors:  In, pointer to the X coordinates of pixel chain*/
+	/*yCors:  In, pointer to the Y coordinates of pixel chain*/
+	/*offsetS:In, start index of this chain in array*/
+	/*newOffsetS: In, start index of extended part*/
+	/*offsetE:In, end index of this chain in array*/
+	/*lineEquation: Out, [a,b] which are the coefficient of lines y=ax+b(horizontal) or x=ay+b(vertical)*/
+	/*return:  line fit error; -1:error happens*/
 	double LeastSquaresLineFit_(unsigned int *xCors, unsigned int *yCors,
 	                            unsigned int offsetS, unsigned int newOffsetS,
 	                            unsigned int offsetE,   std::array<double, 2> &lineEquation);
-	/* Validate line based on the Helmholtz principle, which basically states that
-	 * for a structure to be perceptually meaningful, the expectation of this structure
-	 * by chance must be very low.
-	 */
+	/*检测提取得到的线段是否合理，基于Helmholtz principle*/
+	/*xCors:	In：像素点x坐标*/
+	/*yCors:	In：像素点y坐标*/
+	/*offsetS:	In：起始像素点索引*/
+	/*offsetE:	In：终止像素点索引*/
+	/*lineEquation:	In: 直线方程*/
+	/*direction:	In：直线方向*/
+	/*return: true直线合格false直线不合格*/
 	bool LineValidation_(unsigned int *xCors, unsigned int *yCors,
 	                     unsigned int offsetS, unsigned int offsetE,
 	                     std::array<double, 3> &lineEquation, float &direction);
-	bool bValidate_;//flag to decide whether line will be validated
-	int ksize_; //the size of Gaussian kernel: ksize X ksize, default value is 5.
-	float sigma_;//the sigma of Gaussian kernal, default value is 1.0.
-	/*the threshold of pixel gradient magnitude.
-	 *Only those pixel whose gradient magnitude are larger than this threshold will be
-	 *taken as possible edge points. Default value is 36*/
-	short gradienThreshold_;
-	/*If the pixel's gradient value is bigger than both of its neighbors by a
-	 *certain threshold (ANCHOR_THRESHOLD), the pixel is marked to be an anchor.
-	 *Default value is 8*/
-	unsigned char anchorThreshold_;
-	/*anchor testing can be performed at different scan intervals, i.e.,
-	 *every row/column, every second row/column etc.
-	 *Default value is 2*/
-	unsigned int scanIntervals_;
-	int minLineLen_;//minimal acceptable line length
-	/*For example, there two edges in the image:
+private:
+	int ksize_; //高斯滤波器卷积核大小<Default:5>
+	float sigma_;//高斯滤波器卷积核方差<Default:1>
+	bool bValidate_;//提取到的直线是否需要检验<Default:true>
+	short gradienThreshold_;//图像梯度阈值<Default:36>
+	unsigned char anchorThreshold_;//图像锚点梯度阈值<Default:8>
+	unsigned int scanIntervals_;//图像锚点采样间隔<Default:2>
+	int minLineLen_;//提取直线时最小直线长度阈值
+	/*实例
 	 *edge1 = [(7,4), (8,5), (9,6),| (10,7)|, (11, 8), (12,9)] and
 	 *edge2 = [(14,9), (15,10), (16,11), (17,12),| (18, 13)|, (19,14)] ; then we store them as following:
 	 *pFirstPartEdgeX_ = [10, 11, 12, 18, 19];//store the first part of each edge[from middle to end]
@@ -164,73 +160,37 @@ private:
 	unsigned int *pSecondPartEdgeS_;//store the start index of every edge chain in the second part arrays
 	unsigned int *pAnchorX_;//store the X coordinates of anchors
 	unsigned int *pAnchorY_;//store the Y coordinates of anchors
-	cv::Mat edgeImage_;
+	cv::Mat edgeImage_;//邊緣圖像信息
 	/*The threshold of line fit error;
 	 *If lineFitErr is large than this threshold, then
 	 *the pixel chain is not accepted as a single line segment.*/
 	double lineFitErrThreshold_;
 
+	cv::Mat gImg_;//存储图像梯度信息
+	cv::Mat dirImg_;//存储图像方向信息
+	double logNT_;//
+	cv::Mat_<float> ATA;//the previous matrix of A^T * A;
+	cv::Mat_<float> ATV;//the previous vector of A^T * V;
+	cv::Mat_<float> fitMatT;//the matrix used in line fit function;
+	cv::Mat_<float> fitVec;//the vector used in line fit function;
+	cv::Mat_<float> tempMatLineFit;//the matrix used in line fit function;
+	cv::Mat_<float> tempVecLineFit;//the vector used in line fit function;
 
-	cv::Mat gImg_;//store the gradient image;
-	cv::Mat dirImg_;//store the direction image
-	double logNT_;
-	cv::Mat_<float> ATA;     //the previous matrix of A^T * A;
-	cv::Mat_<float> ATV;    //the previous vector of A^T * V;
-	cv::Mat_<float> fitMatT;     //the matrix used in line fit function;
-	cv::Mat_<float> fitVec;    //the vector used in line fit function;
-	cv::Mat_<float> tempMatLineFit;  //the matrix used in line fit function;
-	cv::Mat_<float> tempVecLineFit;    //the vector used in line fit function;
-
-
-	/** Compare doubles by relative error.
-	     The resulting rounding error after floating point computations
-	     depend on the specific operations done. The same number computed by
-	     different algorithms could present different rounding errors. For a
-	     useful comparison, an estimation of the relative rounding error
-	     should be considered and compared to a factor times EPS. The factor
-	     should be related to the accumulated rounding error in the chain of
-	     computation. Here, as a simplification, a fixed factor is used.
-	 */
+public:
+	/*判断两个double类型的数据是否相等*/
 	static int double_equal(double a, double b)
 	{
 		double abs_diff, aa, bb, abs_max;
-		/* trivial case */
 		if ( a == b ) return true;
 		abs_diff = fabs(a - b);
 		aa = fabs(a);
 		bb = fabs(b);
 		abs_max = aa > bb ? aa : bb;
-		/* DBL_MIN is the smallest normalized number, thus, the smallest
-		  number whose relative error is bounded by DBL_EPSILON. For
-		  smaller numbers, the same quantization steps as for DBL_MIN
-		  are used. Then, for smaller numbers, a meaningful "relative"
-		  error should be computed by dividing the difference by DBL_MIN. */
 		if ( abs_max < DBL_MIN ) abs_max = DBL_MIN;
-		/* equal if relative error <= factor x eps */
 		return (abs_diff / abs_max) <= (RELATIVE_ERROR_FACTOR * DBL_EPSILON);
 	}
-	/** Computes the natural logarithm of the absolute value of
-	     the gamma function of x using the Lanczos approximation.
-	     See http://www.rskey.org/gamma.htm
-	     The formula used is
-	     @f[
-	       \Gamma(x) = \frac{ \sum_{n=0}^{N} q_n x^n }{ \Pi_{n=0}^{N} (x+n) }
-	                   (x+5.5)^{x+0.5} e^{-(x+5.5)}
-	     @f]
-	     so
-	     @f[
-	       \log\Gamma(x) = \log\left( \sum_{n=0}^{N} q_n x^n \right)
-	                       + (x+0.5) \log(x+5.5) - (x+5.5) - \sum_{n=0}^{N} \log(x+n)
-	     @f]
-	     and
-	       q0 = 75122.6331530,
-	       q1 = 80916.6278952,
-	       q2 = 36308.2951477,
-	       q3 = 8687.24529705,
-	       q4 = 1168.92649479,
-	       q5 = 83.8676043424,
-	       q6 = 2.50662827511.
-	 */
+	/*使用lanczos方法计算伽马函数的自然对数值*/
+	/*See:http://www.rskey.org/gamma.htm*/
 	static double log_gamma_lanczos(double x)
 	{
 		static double q[7] = { 75122.6331530, 80916.6278952, 36308.2951477,
@@ -247,21 +207,9 @@ private:
 		}
 		return a + log(b);
 	}
-	/** Computes the natural logarithm of the absolute value of
-	     the gamma function of x using Windschitl method.
-	     See http://www.rskey.org/gamma.htm
-	     The formula used is
-	     @f[
-	         \Gamma(x) = \sqrt{\frac{2\pi}{x}} \left( \frac{x}{e}
-	                     \sqrt{ x\sinh(1/x) + \frac{1}{810x^6} } \right)^x
-	     @f]
-	     so
-	     @f[
-	         \log\Gamma(x) = 0.5\log(2\pi) + (x-0.5)\log(x) - x
-	                       + 0.5x\log\left( x\sinh(1/x) + \frac{1}{810x^6} \right).
-	     @f]
-	     This formula is a good approximation when x > 15.
-	 */
+	/*使用windschitl方法计算伽马函数的自然对数值*/
+	/*See:http://www.rskey.org/gamma.htm*/
+	/*Warning:x大于15时该方法效果较好*/
 	static double log_gamma_windschitl(double x)
 	{
 		return 0.918938533204673 + (x - 0.5) * log(x) - x
@@ -301,13 +249,13 @@ private:
 	     of the terms are neglected based on a bound to the error obtained
 	     (an error of 10% in the result is accepted).
 	 */
-	static double nfa(int n, int    k,  double p, double  logNT)
+	static double nfa(int n,int k,double p,double logNT)
 	{
 		double tolerance = 0.1;       /* an error of 10% in the result is accepted */
 		double log1term, term, bin_term, mult_term, bin_tail, err, p_term;
 		int i;
 
-		/* check parameters */
+		//函数运行前必要的参数检查
 		if ( n < 0 || k < 0 || k > n || p <= 0.0 || p >= 1.0 )
 		{
 			std::cout << "nfa: wrong n, k or p values." << std::endl;
@@ -315,7 +263,7 @@ private:
 		}
 		/* trivial cases */
 		if ( n == 0 || k == 0 ) return -logNT;
-		if ( n == k ) return -logNT - (double) n * log10(p);
+		if ( n == k ) return -logNT-(double)n*log10(p);
 
 		/* probability term */
 		p_term = p / (1.0 - p);
