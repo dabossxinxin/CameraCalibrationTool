@@ -1,50 +1,6 @@
-/*IMPORTANT: READ BEFORE DOWNLOADING, COPYING, INSTALLING OR USING.
-
- By downloading, copying, installing or using the software you agree to this license.
- If you do not agree to this license, do not download, install,
- copy or use the software.
-
-
-                          License Agreement
-               For Open Source Computer Vision Library
-
-Copyright (C) 2011-2012, Lilian Zhang, all rights reserved.
-Copyright (C) 2013, Manuele Tamburrano, Stefano Fabri, all rights reserved.
-Third party copyrights are property of their respective owners.
-
-To extract edge and lines, this library implements the EDLines Algorithm and the Edge Drawing detector:
-http://www.sciencedirect.com/science/article/pii/S0167865511001772
-http://www.sciencedirect.com/science/article/pii/S1047320312000831
-
-Redistribution and use in source and binary forms, with or without modification,
-are permitted provided that the following conditions are met:
-
-  * Redistributions of source code must retain the above copyright notice,
-    this list of conditions and the following disclaimer.
-
-  * Redistributions in binary form must reproduce the above copyright notice,
-    this list of conditions and the following disclaimer in the documentation
-    and/or other materials provided with the distribution.
-
-  * The name of the copyright holders may not be used to endorse or promote products
-    derived from this software without specific prior written permission.
-
-This software is provided by the copyright holders and contributors "as is" and
-any express or implied warranties, including, but not limited to, the implied
-warranties of merchantability and fitness for a particular purpose are disclaimed.
-In no event shall the Intel Corporation or contributors be liable for any direct,
-indirect, incidental, special, exemplary, or consequential damages
-(including, but not limited to, procurement of substitute goods or services;
-loss of use, data, or profits; or business interruption) however caused
-and on any theory of liability, whether in contract, strict liability,
-or tort (including negligence or otherwise) arising in any way out of
-the use of this software, even if advised of the possibility of such damage.
-*/
-
-
-#include "EDLineDetector.h"
-
 #include <fstream>
+#include <iostream>
+#include "EDLineDetector.h"
 
 //#define DEBUG_EDLINE
 
@@ -53,30 +9,26 @@ the use of this software, even if advised of the possibility of such damage.
 	#include <sys/types.h>
 	#include <ctime>
 	#include <sys/errno.h>
-
 	static std::string DEBUG_FOLDER;
 #endif
 
-#define Horizontal  255//if |dx|<|dy|;
-#define Vertical    0//if |dy|<=|dx|;
-#define UpDir       1
-#define RightDir    2
-#define DownDir     3
-#define LeftDir     4
-#define TryTime     6
-#define SkipEdgePoint 2
+#define Horizontal			255//if |dx|<|dy|;
+#define Vertical			0//if |dy|<=|dx|;
+#define UpDir				1
+#define RightDir			2
+#define DownDir				3
+#define LeftDir				4
+#define TryTime				6
+#define SkipEdgePoint		2
+#define M_PI				3.1415926535898
 
-#define M_PI 3.1415926535898
-
-using namespace std;
-
-void writeMat(cv::Mat m, string name, int n)
+void writeMat(cv::Mat m, std::string name, int n)
 {
 	std::stringstream ss;
-	string s;
+	std::string s;
 	ss << n;
 	ss >> s;
-	string fileNameConf = name + s;
+	std::string fileNameConf = name + s;
 	cv::FileStorage fsConf(fileNameConf, cv::FileStorage::WRITE);
 	fsConf << "m" << m;
 	fsConf.release();
@@ -337,8 +289,8 @@ int EDLineDetector::EdgeDrawing(cv::Mat const &image, EdgeChains &edgeChains, bo
 
 	if (anchorsSize > edgePixelArraySize)
 	{
-		cout << "anchor size is larger than its maximal size. anchorsSize=" << anchorsSize
-			 << ", maximal size = " << edgePixelArraySize << endl;
+		std::cout << "anchor size is larger than its maximal size. anchorsSize=" << anchorsSize
+			 << ", maximal size = " << edgePixelArraySize << std::endl;
 		return -1;
 	}
 
@@ -1000,15 +952,15 @@ int EDLineDetector::EdgeDrawing(cv::Mat const &image, EdgeChains &edgeChains, bo
 	pSecondPartEdgeS_[offsetPS] = offsetPSecond;
 	if (offsetPS > maxNumOfEdge)
 	{
-		cout << "Edge drawing Error: The total number of edges is larger than MaxNumOfEdge, "
-			 "numofedge = " << offsetPS << ", MaxNumOfEdge=" << maxNumOfEdge << endl;
+		std::cout << "Edge drawing Error: The total number of edges is larger than MaxNumOfEdge, "
+			 "numofedge = " << offsetPS << ", MaxNumOfEdge=" << maxNumOfEdge << std::endl;
 		return -1;
 	}
 	if (offsetPFirst > edgePixelArraySize || offsetPSecond > edgePixelArraySize)
 	{
-		cout << "Edge drawing Error: The total number of edge pixels is larger than MaxNumOfEdgePixels, "
+		std::cout << "Edge drawing Error: The total number of edge pixels is larger than MaxNumOfEdgePixels, "
 			 "numofedgePixel1 = " << offsetPFirst << ",  numofedgePixel2 = " << offsetPSecond <<
-			 ", MaxNumOfEdgePixel=" << edgePixelArraySize << endl;
+			 ", MaxNumOfEdgePixel=" << edgePixelArraySize << std::endl;
 		return -1;
 	}
 
@@ -1113,7 +1065,7 @@ int EDLineDetector::EDline(cv::Mat const &image, LineChains &lines, bool smoothe
 	EdgeChains edges;
 	if ( EdgeDrawing(image, edges, smoothed) < 0 )
 	{
-		cout << "Line Detection not finished" << endl;
+		std::cout << "Line Detection not finished" << std::endl;
 		return -1;
 	}
 
@@ -1541,9 +1493,9 @@ double EDLineDetector::LeastSquaresLineFit_(  unsigned int *xCors,   unsigned in
 	int newLength = offsetE - newOffsetS;
 	if (length <= 0 || newLength <= 0)
 	{
-		cout << "EDLineDetector::LeastSquaresLineFit_ Error:"
+		std::cout << "EDLineDetector::LeastSquaresLineFit_ Error:"
 			 " the expected line index is wrong...offsetE = "
-			 << offsetE << ", offsetS=" << offsetS << ", newOffsetS=" << newOffsetS << endl;
+			 << offsetE << ", offsetS=" << offsetS << ", newOffsetS=" << newOffsetS << std::endl;
 		return -1;
 	}
 	if (lineEquation.size() != 2)
