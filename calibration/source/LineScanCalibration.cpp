@@ -278,7 +278,7 @@ bool LineScanCalibration::Update()
 bool LineScanCalibration::InitialEstimate() 
 {
 	//输出调试信息
-	CommonFunctions::ConditionPrint("Start Initial Estimate...");	
+	CommonFunctions::ConditionPrint("Start Initial Estimate...");
 	//函数运行前必进行的检查工作
 	if (mObjectPoints.size() != mImagePoints.size()){
 		std::cerr << "Object Points's Are Not Equal To Image Points's" << std::endl;
