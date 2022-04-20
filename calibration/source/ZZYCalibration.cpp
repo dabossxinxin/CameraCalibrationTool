@@ -602,10 +602,7 @@ namespace MtZZYCalibration
 					<< " #Final RMSE: " << std::sqrt(summary.final_cost / summary.num_residuals) << "\n"
 					<< " #Time (s): " << summary.total_time_in_seconds << "\n"
 					<< std::endl;
-				/*for (auto& a : k) std::cout << a << " ";
-				cv::Mat cameraMatrix, distCoeffs;
-				cameraMatrix = (cv::Mat_<double>(3, 3) << k[0], 0.0, k[2], 0, k[1], k[3], 0, 0, 1);
-				distCoeffs = (cv::Mat_<double>(1, 5) << k[4], k[5], k[7], k[8], k[6]);*/
+				/*获取畸变参数&内参*/
 				Eigen::Matrix3d cameraMatrix_;
 				Eigen::VectorXd distCoeffs_(5);
 				if (mDistortionParaNum == 5)
@@ -1007,6 +1004,4 @@ namespace MtZZYCalibration
 		}
 		return totalErr / totalPoints;
 	}
-
-	
 }

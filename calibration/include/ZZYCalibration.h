@@ -1,12 +1,12 @@
 #pragma once
-#include<Eigen/Core>
-#include<Eigen/SVD>
-#include<Eigen/Dense>
-#include<opencv2/opencv.hpp>
-#include<opencv2/core/eigen.hpp>
-#include<opencv2/calib3d.hpp>
-#include<iostream>
-#include"CeresCostFun.h"
+#include <Eigen/Core>
+#include <Eigen/SVD>
+#include <Eigen/Dense>
+#include <opencv2/opencv.hpp>
+#include <opencv2/core/eigen.hpp>
+#include <opencv2/calib3d.hpp>
+#include <iostream>
+#include "CeresCostFun.h"
 
 using namespace std;
 using namespace Eigen;
@@ -18,15 +18,75 @@ typedef std::vector<std::vector<Eigen::Vector3d>> doubleVector3D;
 
 namespace MtZZYCalibration
 {
-	struct TwoDCoordinate
-	{
+	/*同时优化相机内参、外参以及畸变参数*/
+	struct ProjectCost {
+		Eigen::Vector3d objPt;
+		Eigen::Vector2d imgPt;
+		const int mDistortionParaNum;
+		/*构造函数*/
+		ProjectCost(Eigen::Vector3d& objPt, Eigen::Vector2d& imgPt, const int& paraNum) :
+			objPt(objPt), imgPt(imgPt), mDistortionParaNum(paraNum) {}
+		/*重载的()运算符*/
+		template<class T>
+		bool operator()(
+			const T *const k,
+			const T *const r,
+			const T *const t,
+			T* residuals)const
+		{
+			T pos3d[3] = { T(objPt(0)), T(objPt(1)), T(objPt(2)) };
+			T pos3d_proj[3];
+			// 旋转
+			ceres::AngleAxisRotatePoint(r, pos3d, pos3d_proj);
+			// 平移
+			pos3d_proj[0] += t[0];
+			pos3d_proj[1] += t[1];
+			pos3d_proj[2] += t[2];
+			T xp = pos3d_proj[0] / pos3d_proj[2];
+			T yp = pos3d_proj[1] / pos3d_proj[2];
+			T xdis = T(0.0);
+			T ydis = T(0.0);
+			const T& fx = k[0];
+			const T& fy = k[1];
+			const T& cx = k[2];
+			const T& cy = k[3];
+			if (mDistortionParaNum == 5){
+				const T& k1 = k[4];
+				const T& k2 = k[5];
+				const T& k3 = k[6];
+				const T& p1 = k[7];
+				const T& p2 = k[8];
+				//径向畸变与切向畸变
+				T r_2 = xp * xp + yp * yp;
+				xdis = xp * (T(1.) + k1 * r_2 + k2 * r_2 * r_2 + k3 * r_2 * r_2 * r_2) + T(2.) * p1 * xp * yp + p2 * (r_2 + T(2.) * xp * xp);
+				ydis = yp * (T(1.) + k1 * r_2 + k2 * r_2 * r_2 + k3 * r_2 * r_2 * r_2) + p1 * (r_2 + T(2.) * yp * yp) + T(2.) * p2 * xp * yp;
+			}
+			else if (mDistortionParaNum == 4){
+				const T& k1 = k[4];
+				const T& k2 = k[5];
+				const T& p1 = k[6];
+				const T& p2 = k[7];
+				//径向畸变
+				T r_2 = xp * xp + yp * yp;
+				xdis = xp * (T(1.) + k1 * r_2 + k2 * r_2 * r_2) + T(2.) * p1 * xp * yp + p2 * (r_2 + T(2.) * xp * xp);
+				ydis = yp * (T(1.) + k1 * r_2 + k2 * r_2 * r_2) + p1 * (r_2 + T(2.) * yp * yp) + T(2.) * p2 * xp * yp;
+			}
+			//像素距离
+			T u = fx*xdis + cx;
+			T v = fy*ydis + cy;
+			residuals[0] = u - T(imgPt[0]);
+			residuals[1] = v - T(imgPt[1]);
+			return true;
+		}
+	};
+	/*2D点表示结构*/
+	struct TwoDCoordinate{
 		double x;
 		double y;
 		TwoDCoordinate() :x(0.0), y(0.0) {};
 	};
-
-	struct ThreeDCoordinate
-	{
+	/*3D点表示结构*/
+	struct ThreeDCoordinate{
 		double x;
 		double y;
 		double z;

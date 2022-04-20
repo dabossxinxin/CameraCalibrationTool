@@ -1,6 +1,8 @@
 #pragma once
 
 #include <Eigen/Core>
+#include <Eigen/SVD>
+#include <Eigen/Dense>
 #include <iostream>
 #include <vector>
 
@@ -274,6 +276,7 @@ private:
 	void SaveGroundTruth();
 	void SaveWorldPointsBeforeOptimized(LineScanPara& cameraPara);
 	void SaveWorldPointsAfterOptimized(LineScanPara& cameraPara);
+
 private:
 	/*保存关键信息的路径*/
 	std::string								mDebugPath;
@@ -294,6 +297,4 @@ private:
 	std::vector<cv::Point3d>				mGroudTruth;
 	/*调试用*/
 	cv::Mat									mImageDebug;
-	/*去畸变图像*/
-	cv::Mat									mUndistortImage;
 };

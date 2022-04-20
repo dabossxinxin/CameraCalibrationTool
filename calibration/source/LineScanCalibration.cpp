@@ -277,8 +277,7 @@ void FeaturesPointExtract::VerticalLine3DPoints()
 	}
 	CommonStruct::LineFunction2D diagonalLine;
 	diagonalLine = CommonFunctions::ComputeLineFunction2D(diagonalLinePts);
-
-	//评定拟合直线的精度
+	/*评价拟合直线的精度*/
 	std::vector<double> errors;
 	for (int it = 0; it < mFeaturesNum;++it) {
 		if (it % 2 != 0) {
@@ -288,7 +287,7 @@ void FeaturesPointExtract::VerticalLine3DPoints()
 	}
 	double meanErr = CommonFunctions::Mean<double>(errors);
 	std::cout << "直线拟合的RMS为：" << meanErr << " mm" << std::endl;
-
+	/*计算竖直直线坐标*/
 	for (int it = 0; it < mFeaturesNum; ++it) {
 		if (it % 2 == 0) {
 			cv::Point2d pt = CommonFunctions::ComputeIntersectionPt(mLineFunction2D[it], diagonalLine);
@@ -300,32 +299,27 @@ void FeaturesPointExtract::VerticalLine3DPoints()
 
 bool FeaturesPointExtract::Update()
 { 
-	//初始化
+	/*初始化*/
 	this->Initialize();
-	
-	//通过交比不变性计算diagonal line 3D特征点坐标
+	/*通过交比不变性计算diagonal line 3D特征点坐标*/
 	this->DiagonalLine3DPoints();
-	
-	//通过斜线3D点坐标求解直线3D点坐标
+	/*通过斜线3D点坐标求解直线3D点坐标*/
 	this->VerticalLine3DPoints();
-
-	//生成debug图像
+	/*生成debug图像*/
 	this->GenerateDebugImage();
-
+	/*正常返回*/
 	return true;
 }
 
 bool FeaturesPointExtract::UpdateWithFeatures()
 {
-	//初始化
+	/*初始化*/
 	this->InitializeWithFeatures();
-
-	//通过交比不变性计算diagonal line 3D特征点坐标
+	/*通过交比不变性计算diagonal line 3D特征点坐标*/
 	this->DiagonalLine3DPoints();
-
-	//通过斜线3D点坐标求解直线3D点坐标
+	/*通过斜线3D点坐标求解直线3D点坐标*/
 	this->VerticalLine3DPoints();
-
+	/*正常返回*/
 	return true;
 }
 
@@ -898,12 +892,11 @@ bool LineScanCalibration::OptimizeEstimate()
 	options.gradient_tolerance = 1e-10;
 	ceres::Solver::Summary summary;
 	ceres::Solve(options, &problem, &summary);
-
+	/*打印优化的关键信息*/
 	if (!summary.IsSolutionUsable()) {
 		std::cerr << "Nonlinear Optimization Failed..." << std::endl;
 	}
 	else {
-		/*打印非线性优化的相关信息*/
 		std::cout << std::endl
 			<< " Bundle Adjustment Statistics (Approximated RMSE):\n"
 			<< " #views: " << imagesNum << "\n"
@@ -1298,4 +1291,3 @@ void LineScanCalibration::UndistortionKeys(Eigen::Vector2d& vUnKeys,
 	vKeys = Eigen::Vector2d(u_un, v_un);
 	return;
 }
-
