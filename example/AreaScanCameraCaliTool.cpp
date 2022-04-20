@@ -6,6 +6,7 @@
 #include "SpaceCircleSolver.h"
 #include "SpaceLineSolver.h"
 #include "StereoCalibration.h"
+#include "LineScanCalibration.h"
 #include "PnPSolver.h"
 #include "CommonFunctions.h"
 #include "ZernikeMoment.h"
@@ -29,7 +30,6 @@ using namespace MtSpaceLineSolver;
 using namespace MtStereoCalibration;
 
 /*面阵相机标定程序*/
-
 bool findCirclesCenter(const cv::Mat& img, const cv::Size& board_size, const cv::Size& square_size, std::vector<cv::Point2f>& corners)
 {
     cv::Size image_size;
@@ -793,7 +793,6 @@ void testSpaceCircleSolver(void)
     std::cout << "center: " << center.transpose() << std::endl;
 }
 
-
 void testFeatureDetector(void)
 {
     std::string files = "./data/14.bmp";
@@ -1166,122 +1165,222 @@ void testZernikeMoment(void)
     zm.compute(x,y);
 }
 
-//void testStereoCalibration(void)
-//{
-//    std::string Folder = "E:\\Code\\EllipseFitSource\\data\\calibration\\";
-//    
-//    std::vector<std::string> leftFiles =
-//    {
-//        Folder + "left\\left01.jpg",
-//        Folder + "left\\left02.jpg",
-//        Folder + "left\\left03.jpg",
-//        Folder + "left\\left04.jpg",
-//        Folder + "left\\left05.jpg",
-//        Folder + "left\\left06.jpg",
-//        Folder + "left\\left07.jpg",
-//        Folder + "left\\left08.jpg",
-//        Folder + "left\\left09.jpg",
-//        Folder + "left\\left11.jpg",
-//        Folder + "left\\left12.jpg",
-//        Folder + "left\\left13.jpg",
-//        Folder + "left\\left14.jpg",
-//    };
-//
-//    std::vector<std::string> rightFiles =
-//    {
-//        Folder + "right\\right01.jpg",
-//        Folder + "right\\right02.jpg",
-//        Folder + "right\\right03.jpg",
-//        Folder + "right\\right04.jpg",
-//        Folder + "right\\right05.jpg",
-//        Folder + "right\\right06.jpg",
-//        Folder + "right\\right07.jpg",
-//        Folder + "right\\right08.jpg",
-//        Folder + "right\\right09.jpg",
-//        Folder + "right\\right11.jpg",
-//        Folder + "right\\right12.jpg",
-//        Folder + "right\\right13.jpg",
-//        Folder + "right\\right14.jpg",
-//    };
-//
-//    // read data
-//    std::vector<cv::Mat> leftImages;
-//    std::vector<cv::Mat> rightImages;
-//
-//    assert(leftFiles.size() == rightFiles.size());
-//
-//    for (int it = 0; it < leftFiles.size(); it++)
-//    {
-//        leftImages.emplace_back(cv::imread(leftFiles[it]));
-//        rightImages.emplace_back(cv::imread(rightFiles[it]));
-//    }
-//
-//    cv::Size boardSize(9, 6);
-//    cv::Size2f squareSize(25., 25.);
-//
-//    std::string cameraParaPath = "E:\\Code\\EllipseFitSource\\config\\config_stereo.yaml";
-//    StereoCalibration calibration(4, leftFiles.size(), rightFiles.size(), cameraParaPath);
-//    calibration.SetLeftImages(leftImages);
-//    calibration.SetRightImages(rightImages);
-//    calibration.SetObjectPoints(boardSize, squareSize);
-//    calibration.compute();
-//    
-//    std::vector<cv::Mat> RList;
-//    std::vector<cv::Mat> tList;
-//    
-//    std::vector<std::vector<Eigen::Vector3d>> vLeftLandMark;
-//    std::vector<std::vector<Eigen::Vector3d>> vRightLandMark;
-//    std::vector<std::vector<Eigen::Vector3d>> vRightLandMarkMeasure;
-//    
-//    calibration.GetCameraPose(RList, tList);
-//    calibration.GetLeftLandMark(vLeftLandMark);
-//    calibration.GetRightLandMark(vRightLandMark);
-//    calibration.GetRightLandMarkMeasure(vRightLandMarkMeasure);
-//
-//    pcl::PointCloud<pcl::PointXYZ>::Ptr leftCloud(new pcl::PointCloud<pcl::PointXYZ>);
-//    pcl::PointCloud<pcl::PointXYZ>::Ptr rightCloud(new pcl::PointCloud<pcl::PointXYZ>);
-//    pcl::PointCloud<pcl::PointXYZ>::Ptr rightCloudMeasure(new pcl::PointCloud<pcl::PointXYZ>);
-//
-//    const int leftImageNum = vLeftLandMark.size();
-//    const int rightImageNum = vRightLandMark.size();
-//    const int leftFeatureNum = vLeftLandMark[0].size();
-//    const int rightFeatureNum = vRightLandMark[0].size();
-//
-//    assert(leftImageNum == rightImageNum);
-//    assert(leftFeatureNum == rightFeatureNum);
-//
-//    for (int i = 0; i < leftImageNum; i++)
-//    {
-//        for (int j = 0; j < leftFeatureNum; j++)
-//        {
-//            leftCloud->points.emplace_back(vLeftLandMark[i][j](0), vLeftLandMark[i][j](1), vLeftLandMark[i][j](2));
-//            rightCloud->points.emplace_back(vRightLandMark[i][j](0), vRightLandMark[i][j](1), vRightLandMark[i][j](2));
-//            rightCloudMeasure->points.emplace_back(vRightLandMarkMeasure[i][j](0), vRightLandMarkMeasure[i][j](1), vRightLandMarkMeasure[i][j](2));
-//        }
-//    }
-//    
-//    std::string fileLeft = "E:\\Code\\EllipseFitSource\\result\\leftcloud.pcd";
-//    std::string fileRight = "E:\\Code\\EllipseFitSource\\result\\rightcloud.pcd";
-//    std::string fileRightMeasure = "E:\\Code\\EllipseFitSource\\result\\rightcloudMeasure.pcd";
-//
-//    leftCloud->height = 1; leftCloud->width = leftCloud->size();
-//    rightCloud->height = 1; rightCloud->width = rightCloud->size();
-//    rightCloudMeasure->height = 1; rightCloudMeasure->width = rightCloudMeasure->size();
-//    
-//    pcl::io::savePCDFileASCII(fileLeft, *leftCloud);
-//    pcl::io::savePCDFileASCII(fileRight, *rightCloud);
-//    pcl::io::savePCDFileASCII(fileRightMeasure, *rightCloudMeasure);
-//
-//    // get transform matrix
-//    for (int it = 0; it < leftImageNum; it++)
-//    {
-//        std::cout << "R: " << std::endl;
-//        std::cout << RList[it] << std::endl;
-//        std::cout << "t: " << std::endl;
-//        std::cout << tList[it] << std::endl << std::endl;
-//        
-//    }
-//}
+void testStereoCalibration(void)
+{
+    std::string Folder = "E:\\Code\\EllipseFitSource\\data\\calibration\\";
+    
+    std::vector<std::string> leftFiles =
+    {
+        Folder + "left\\left01.jpg",
+        Folder + "left\\left02.jpg",
+        Folder + "left\\left03.jpg",
+        Folder + "left\\left04.jpg",
+        Folder + "left\\left05.jpg",
+        Folder + "left\\left06.jpg",
+        Folder + "left\\left07.jpg",
+        Folder + "left\\left08.jpg",
+        Folder + "left\\left09.jpg",
+        Folder + "left\\left11.jpg",
+        Folder + "left\\left12.jpg",
+        Folder + "left\\left13.jpg",
+        Folder + "left\\left14.jpg",
+    };
+
+    std::vector<std::string> rightFiles =
+    {
+        Folder + "right\\right01.jpg",
+        Folder + "right\\right02.jpg",
+        Folder + "right\\right03.jpg",
+        Folder + "right\\right04.jpg",
+        Folder + "right\\right05.jpg",
+        Folder + "right\\right06.jpg",
+        Folder + "right\\right07.jpg",
+        Folder + "right\\right08.jpg",
+        Folder + "right\\right09.jpg",
+        Folder + "right\\right11.jpg",
+        Folder + "right\\right12.jpg",
+        Folder + "right\\right13.jpg",
+        Folder + "right\\right14.jpg",
+    };
+
+    // read data
+    std::vector<cv::Mat> leftImages;
+    std::vector<cv::Mat> rightImages;
+
+    assert(leftFiles.size() == rightFiles.size());
+
+    for (int it = 0; it < leftFiles.size(); it++)
+    {
+        leftImages.emplace_back(cv::imread(leftFiles[it]));
+        rightImages.emplace_back(cv::imread(rightFiles[it]));
+    }
+
+    cv::Size boardSize(9, 6);
+    cv::Size2f squareSize(25., 25.);
+
+    std::string cameraParaPath = "E:\\Code\\EllipseFitSource\\config\\config_stereo.yaml";
+    StereoCalibration calibration(4, leftFiles.size(), rightFiles.size(), cameraParaPath);
+    calibration.SetLeftImages(leftImages);
+    calibration.SetRightImages(rightImages);
+    calibration.SetObjectPoints(boardSize, squareSize);
+    calibration.compute();
+    
+    std::vector<cv::Mat> RList;
+    std::vector<cv::Mat> tList;
+    
+    std::vector<std::vector<Eigen::Vector3d>> vLeftLandMark;
+    std::vector<std::vector<Eigen::Vector3d>> vRightLandMark;
+    std::vector<std::vector<Eigen::Vector3d>> vRightLandMarkMeasure;
+    
+    calibration.GetCameraPose(RList, tList);
+    calibration.GetLeftLandMark(vLeftLandMark);
+    calibration.GetRightLandMark(vRightLandMark);
+    calibration.GetRightLandMarkMeasure(vRightLandMarkMeasure);
+
+    pcl::PointCloud<pcl::PointXYZ>::Ptr leftCloud(new pcl::PointCloud<pcl::PointXYZ>);
+    pcl::PointCloud<pcl::PointXYZ>::Ptr rightCloud(new pcl::PointCloud<pcl::PointXYZ>);
+    pcl::PointCloud<pcl::PointXYZ>::Ptr rightCloudMeasure(new pcl::PointCloud<pcl::PointXYZ>);
+
+    const int leftImageNum = vLeftLandMark.size();
+    const int rightImageNum = vRightLandMark.size();
+    const int leftFeatureNum = vLeftLandMark[0].size();
+    const int rightFeatureNum = vRightLandMark[0].size();
+
+    assert(leftImageNum == rightImageNum);
+    assert(leftFeatureNum == rightFeatureNum);
+
+    for (int i = 0; i < leftImageNum; i++)
+    {
+        for (int j = 0; j < leftFeatureNum; j++)
+        {
+            leftCloud->points.emplace_back(vLeftLandMark[i][j](0), vLeftLandMark[i][j](1), vLeftLandMark[i][j](2));
+            rightCloud->points.emplace_back(vRightLandMark[i][j](0), vRightLandMark[i][j](1), vRightLandMark[i][j](2));
+            rightCloudMeasure->points.emplace_back(vRightLandMarkMeasure[i][j](0), vRightLandMarkMeasure[i][j](1), vRightLandMarkMeasure[i][j](2));
+        }
+    }
+    
+    std::string fileLeft = "E:\\Code\\EllipseFitSource\\result\\leftcloud.pcd";
+    std::string fileRight = "E:\\Code\\EllipseFitSource\\result\\rightcloud.pcd";
+    std::string fileRightMeasure = "E:\\Code\\EllipseFitSource\\result\\rightcloudMeasure.pcd";
+
+    leftCloud->height = 1; leftCloud->width = leftCloud->size();
+    rightCloud->height = 1; rightCloud->width = rightCloud->size();
+    rightCloudMeasure->height = 1; rightCloudMeasure->width = rightCloudMeasure->size();
+    
+    pcl::io::savePCDFileASCII(fileLeft, *leftCloud);
+    pcl::io::savePCDFileASCII(fileRight, *rightCloud);
+    pcl::io::savePCDFileASCII(fileRightMeasure, *rightCloudMeasure);
+
+    // get transform matrix
+    for (int it = 0; it < leftImageNum; it++)
+    {
+        std::cout << "R: " << std::endl;
+        std::cout << RList[it] << std::endl;
+        std::cout << "t: " << std::endl;
+        std::cout << tList[it] << std::endl << std::endl;
+        
+    }
+}
+
+/*获取文件夹中所有文件的路径*/
+void getFiles(const std::string& path, std::vector<std::string>& files)
+{
+	std::vector<cv::String> imagePaths;
+	cv::glob(path, imagePaths, true);
+	for (auto it : imagePaths) {
+		files.push_back(it.c_str());
+	}
+	return;
+}
+/*构造二维2D特征点*/
+void constructFeatures2D(const std::vector<std::vector<cv::Point2d>>& in,
+	std::vector<std::vector<cv::Point2d>>& out)
+{
+	const int featureSize = in.begin()->size();
+	//for (int it = 0; it < in.size();++it) {
+	//	/*将所有点旋转90度*/
+	//	std::vector<cv::Point2d> featurePointsR0;
+	//	std::vector<cv::Point2d> featurePointsR90;
+	//	featurePointsR0 = in[it];
+	//	featurePointsR90.resize(featureSize);
+	//	for (int iti = 0; iti < featureSize; ++iti) {
+	//		cv::Point2d refPt = in[it][0];
+	//		CommonFunctions::RotatePoint(featurePointsR0[iti], refPt, 0.5*PI, featurePointsR90[iti]);
+	//	}
+	//	/*拟合直线*/
+	//	CommonStruct::LineFunction2D lineR0 = CommonFunctions::ComputeLineFunction2D(featurePointsR0);
+	//	CommonStruct::LineFunction2D lineR90 = CommonFunctions::ComputeLineFunction2D(featurePointsR90);
+	//	/*计算特征*/
+	//	std::vector<cv::Point2d> featurePoints;
+	//	for (int iti = 0; iti < featureSize; ++iti) {
+	//		for (int itj = 0; itj < featureSize; ++itj) {
+	//			CommonStruct::LineFunction2D lineRow = CommonFunctions::ComputeLineFunction2D(lineR0, featurePointsR90[iti]);
+	//			CommonStruct::LineFunction2D lineCol = CommonFunctions::ComputeLineFunction2D(lineR90, featurePointsR0[itj]);
+	//			featurePoints.push_back(CommonFunctions::ComputeIntersectionPt(lineRow, lineCol));
+	//		}
+	//	}
+	//	out.push_back(featurePoints);
+	//}
+	for (int it = 0; it < in.size();++it) {
+		/*计算特征*/
+		std::vector<cv::Point2d> featurePoints;
+		for (int iti = 0; iti < featureSize; ++iti) {
+			for (int itj = 0; itj < featureSize; ++itj) {
+				featurePoints.push_back(cv::Point2f(in[it][iti].x, in[it][itj].x));
+			}
+		}
+		out.push_back(featurePoints);
+	}
+	return;
+}
+/*构造三维3D特征点*/
+void constructFeatures3D(const std::vector<std::vector<cv::Point3d>>& in,
+	std::vector<std::vector<cv::Point3d>>& out)
+{
+	/*将3D数据去除Z分量转化为2D数据*/
+	std::vector<std::vector<cv::Point2d>> in2Ds;
+	std::vector<std::vector<cv::Point2d>> out2Ds;
+	for (int iti = 0; iti < in.size(); ++iti) {
+		std::vector<cv::Point2d> in2D;
+		for (int itj = 0; itj < in[iti].size(); ++itj) {
+			in2D.push_back(cv::Point2d(in[iti][itj].x, in[iti][itj].y));
+		}
+		in2Ds.push_back(in2D);
+	}
+	const int featureSize = in.begin()->size();
+	for (int it = 0; it < in.size();++it) {
+		/*将所有点旋转90度*/
+		std::vector<cv::Point2d> featurePointsR0;
+		std::vector<cv::Point2d> featurePointsR90;
+		featurePointsR0 = in2Ds[it];
+		featurePointsR90.resize(featureSize);
+		for (int iti = 0; iti < featureSize; ++iti) {
+			cv::Point2d refPt = in2Ds[it][0];
+			CommonFunctions::RotatePoint(featurePointsR0[iti], refPt, 0.5*PI, featurePointsR90[iti]);
+		}
+		/*拟合直线*/
+		CommonStruct::LineFunction2D lineR0 = CommonFunctions::ComputeLineFunction2D(featurePointsR0);
+		CommonStruct::LineFunction2D lineR90 = CommonFunctions::ComputeLineFunction2D(featurePointsR90);
+		/*计算特征*/
+		std::vector<cv::Point2d> featurePoints;
+		for (int iti = 0; iti < featureSize; ++iti) {
+			for (int itj = 0; itj < featureSize; ++itj) {
+				CommonStruct::LineFunction2D lineRow = CommonFunctions::ComputeLineFunction2D(lineR0, featurePointsR90[iti]);
+				CommonStruct::LineFunction2D lineCol = CommonFunctions::ComputeLineFunction2D(lineR90, featurePointsR0[itj]);
+				featurePoints.push_back(CommonFunctions::ComputeIntersectionPt(lineRow, lineCol));
+			}
+		}
+		out2Ds.push_back(featurePoints);
+	}
+	for (int iti = 0; iti < out2Ds.size(); ++iti) {
+		std::vector<cv::Point3d> out3D;
+		for (int itj = 0; itj < out2Ds[iti].size(); ++itj) {
+			out3D.push_back(cv::Point3d(out2Ds[iti][itj].x, out2Ds[iti][itj].y, 0.0));
+		}
+		out.push_back(out3D);
+	}
+	return;
+}
 
 int main()
 {
@@ -1297,9 +1396,158 @@ int main()
     //test2();
     //testHomography();
     //testCalibration();
-    testDualEllipse();
+    //testDualEllipse();
     //test_detect();
     //test_point_ellipse();
     //test_ellipse_fit();
     //testStereoCalibration();
+	/*提取线扫相机特征点*/
+	const int featuresNum = 31;
+	std::string left_dir = "C:\\Users\\Administrator\\Desktop\\LineScanCaliData\\left";
+	std::string right_fir = "C:\\Users\\Administrator\\Desktop\\LineScanCaliData\\right";
+	std::vector<std::string> left_files;
+	std::vector<std::string> right_files;
+	getFiles(left_dir.c_str(), left_files);
+	getFiles(right_fir.c_str(), right_files);
+	//初始化特征参数
+	const int imageNum = left_files.size();
+	assert(left_files.size() == right_files.size());
+	//左相机标定
+	std::vector<std::vector<cv::Point2d>> test2Dset;
+	std::vector<std::vector<cv::Point3d>> test3Dset;
+	//提取2D&3D特征
+	for (int it = 0; it < imageNum; ++it) {
+		//确定图像高度
+		float imageHeight = 0.;
+		int ops = left_files[it].rfind('.');
+		if (left_files[it][ops - 4] == '-') {
+			std::string t_h = left_files[it].substr(ops - 4, 4);
+			const char *p = t_h.data();
+			imageHeight = atof(p);
+			imageHeight /= -10.;
+			imageHeight += 1000.0;
+		}
+		else {
+			std::string t_h = left_files[it].substr(ops - 3, 3);
+			const char *p = t_h.data();
+			imageHeight = atof(p);
+			imageHeight /= -10.;
+			imageHeight += 1000.0;
+		}
+		//读取图像
+		cv::Mat imageRaw = cv::imread(left_files[it], cv::IMREAD_GRAYSCALE);
+		/*cv::flip(imageRaw, imageRaw, 1);
+		cv::imwrite("C:\\Users\\Administrator\\Desktop\\flip.bmp", imageRaw);*/
+		if (imageRaw.empty()) {
+			//检查是否读取图像
+			std::cout << "Error! Input image cannot be read...\n";
+			return -1;
+		}
+		//提取图像特征
+		FeaturesPointExtract featuresEx(featuresNum, imageHeight);
+		unsigned char *pImage = imageRaw.data;
+		featuresEx.SetFeatureImage(pImage, 16384, 1600);
+		featuresEx.SetCalibrationPara(1000.0, 4000.0); //10um/pixel
+		featuresEx.Update();
+		std::vector<cv::Point2d> test2D;
+		std::vector<cv::Point3d> test3D;
+		featuresEx.Get2DPoints(test2D);
+		featuresEx.Get3DPoints(test3D);
+		test2Dset.push_back(test2D);
+		test3Dset.push_back(test3D);
+	}
+	/*由一维构造二维特征点*/
+	CommonFunctions::ExchageXY(test2Dset);
+	std::vector<std::vector<cv::Point2d>> TwoDFeaturePoints;
+	std::vector<std::vector<cv::Point3d>> ThreeDFeaturePoints;
+	constructFeatures2D(test2Dset, TwoDFeaturePoints);
+	constructFeatures3D(test3Dset, ThreeDFeaturePoints);
+	/*加入张正友标定中获取内外参信息*/
+	const int distortionParameterNum = 4;
+	const std::string cameraParaPath = "E:\\Code\\EllipseFitSource\\config\\config.yaml";
+	ZZYCalibration calibration(distortionParameterNum, imageNum, cameraParaPath);
+	calibration.setObjectPoints(ThreeDFeaturePoints);
+	calibration.setImagePoints(TwoDFeaturePoints);
+	Eigen::Matrix3d CameraMatrix;
+	Eigen::Vector3d RadialDistortion;
+	Eigen::Vector2d TangentialDistortion;
+	std::vector<std::vector<Eigen::Vector3d>> vX3D;
+	calibration.compute(CameraMatrix, RadialDistortion, TangentialDistortion);
+	calibration.get3DPoint(vX3D);
+	//std::vector<std::vector<cv::Point2d>> test2Dset_r;
+	//std::vector<std::vector<cv::Point3d>> test3Dset_r;
+	//for (int it = 0; it < 1; ++it) {
+	//	//确定图像高度
+	//	float imageHeight = 0.;
+	//	int ops = right_files[it].rfind('.');
+	//	if (right_files[it][ops - 4] == '-') {
+	//		std::string t_h = right_files[it].substr(ops - 4, 4);
+	//		const char *p = t_h.data();
+	//		imageHeight = atof(p);
+	//		imageHeight /= 10.;
+	//		imageHeight += 1000.0;
+	//	}
+	//	else {
+	//		std::string t_h = right_files[it].substr(ops - 3, 3);
+	//		const char *p = t_h.data();
+	//		imageHeight = atof(p);
+	//		imageHeight /= 10.;
+	//		imageHeight += 1000.0;
+	//	}
+	//	//读取图像
+	//	cv::Mat imageRaw = cv::imread(right_files[it],cv::IMREAD_GRAYSCALE);
+	//	/*cv::flip(imageRaw, imageRaw, 0);*/
+	//	if (imageRaw.empty()) {
+	//		//检查是否读取图像
+	//		std::cout << "Error! Input image cannot be read...\n";
+	//		return -1;
+	//	}
+	//	//提取图像特征
+	//	FeaturesPointExtract featuresEx(featuresNum, imageHeight);
+	//	unsigned char *pImage = imageRaw.data;
+	//	featuresEx.SetFeatureImage(pImage, 16384, 1600);
+	//	featuresEx.SetCalibrationPara(1000.0, 4000.0); //10um/pixel
+	//	featuresEx.Update();
+	//	std::vector<cv::Point2d> test2D;
+	//	std::vector<cv::Point3d> test3D;
+	//	featuresEx.Get2DPoints(test2D);
+	//	featuresEx.Get3DPoints(test3D);
+	//	test2Dset_r.push_back(test2D);
+	//	test3Dset_r.push_back(test3D);
+	//}
+	////右相机标定
+	//LineScanCalibration LC_r;
+	//LineScanPara P_r;
+	//std::vector<LineScanPara> initP_r;
+	//LC_r.SetImagePoints(test2Dset_r);
+	//LC_r.SetObjectPoints(test3Dset_r);
+	//LC_r.Update();
+	//LC_r.GetCameraPara(P_r);
+	//LC_r.GetInitCameraPara(initP_r);
+	//for (int it = 0; it < 1; ++it) {
+	//	std::cout << "Right " << "第" << it << "帧" << std::endl;
+	//	std::cout << "R:" << initP_r[it].R << std::endl;
+	//	std::cout << "R det:" << initP_r[it].R.determinant() << std::endl;
+	//	std::cout << "T:" << initP_r[it].T << std::endl;
+	//	std::cout << "k1:" << initP_r[it].k1 << std::endl;
+	//	std::cout << "k2:" << initP_r[it].k2 << std::endl;
+	//	std::cout << "k3:" << initP_r[it].k3 << std::endl;
+	//	std::cout << "vc:" << initP_r[it].vc << std::endl;
+	//	std::cout << "Fy:" << initP_r[it].Fy << std::endl;
+	//	std::cout << "resY:" << initP_r[it].resY << std::endl;
+	//	std::cout << "Conf:" << initP_r[it].Conf << std::endl;
+	//}
+	//std::cout << "Right Result:" << std::endl;
+	//std::cout << "R:" << P_r.RList[0] << std::endl;
+	//std::cout << "R det:" << P_r.RList[0].determinant() << std::endl;
+	//std::cout << "T:" << P_r.TList[0] << std::endl;
+	//std::cout << "k1:" << P_r.k1 << std::endl;
+	//std::cout << "k2:" << P_r.k2 << std::endl;
+	//std::cout << "k3:" << P_r.k3 << std::endl;
+	//std::cout << "vc:" << P_r.vc << std::endl;
+	//std::cout << "Fy:" << P_r.Fy << std::endl;
+	//std::cout << "resY:" << P_r.resY << std::endl;
+	//std::cout << "Conf:" << P_r.Conf << std::endl;
+	system("pause");
+	return 0;
 }

@@ -1,5 +1,6 @@
 #pragma once
 #include "ZZYCalibration.h"
+#include "CommonFunctions.h"
 
 using namespace std;
 using namespace ceres;
@@ -11,41 +12,37 @@ namespace MtZZYCalibration
 
 	void ZZYCalibration::compute(Eigen::Matrix3d& CameraMatrix, Eigen::Vector3d& RadialDistortion, Eigen::Vector2d& TangentialDistortion)
 	{
+		/*标定相机*/
 		cv::Mat cameraMatrix;
 		cv::Mat distCoeffs;
 		Eigen::VectorXd distortionCoeffs;
 		computeCameraCalibration(mImagePoints, mObjectPoints, cameraMatrix, distCoeffs);
-
+		/*标定参数转换为Eigen格式*/
 		cv::cv2eigen(cameraMatrix, CameraMatrix);
 		cv::cv2eigen(distCoeffs, distortionCoeffs);
-
+		/*解析畸变参数*/
 		RadialDistortion(0) = distortionCoeffs(0);
 		RadialDistortion(1) = distortionCoeffs(1);
 		RadialDistortion(2) = distortionCoeffs(4);
 		TangentialDistortion(0) = distortionCoeffs(2);
 		TangentialDistortion(1) = distortionCoeffs(3);
-
+		/*保存标定参数并打印*/
 		mCameraMatrix = CameraMatrix;
 		mRadialDistortion = RadialDistortion;
 		mTangentialDistortion = TangentialDistortion;
-
 		cv::FileStorage fs(mStrCameraParaPath.c_str(), cv::FileStorage::WRITE);
-		
 		fs << "Camera_fx" << CameraMatrix(0, 0);
 		fs << "Camera_fy" << CameraMatrix(1, 1);
 		fs << "Camera_cx" << CameraMatrix(0, 2);
 		fs << "Camera_cy" << CameraMatrix(1, 2);
-		
 		fs << "Camera_k1" << RadialDistortion(0);
 		fs << "Camera_k2" << RadialDistortion(1);
 		fs << "Camera_k3" << RadialDistortion(2);
 		fs << "Camera_p1" << TangentialDistortion(0);
 		fs << "Camera_p2" << TangentialDistortion(1);
-
 		fs << "Image_Rotation" << "[" << mRListMat << "]";
 		fs << "Image_Translation" << "[" <<mtListMat << "]";
-
-		PrintCameraIntrinsics();
+		this->PrintCameraIntrinsics();
 	}
 
 	void ZZYCalibration::PrintCameraIntrinsics()
@@ -68,6 +65,34 @@ namespace MtZZYCalibration
 				<< setiosflags(ios::right) << setw(25) << value[i] << setw(10) << resetiosflags(ios::right) << std::endl;
 		}
 		std::cout << "-------------------------------------------------" << std::endl;
+	}
+
+	void ZZYCalibration::Points2d2Vectors2d(const doublePoint2D& vIn, doubleVector2D& vOut)
+	{
+		for (int iti = 0; iti < vIn.size(); ++iti) {
+			std::vector<Eigen::Vector2d> vEigenPts;
+			for (int itj = 0; itj < vIn[iti].size();++itj) {
+				Eigen::Vector2d eigenPt;
+				CommonFunctions::Point2d2Vector2d(vIn[iti][itj], eigenPt);
+				vEigenPts.push_back(eigenPt);
+			}
+			vOut.push_back(vEigenPts);
+		}
+		return;
+	}
+
+	void ZZYCalibration::Points3d2Vectors3d(const doublePoint3D& vIn, doubleVector3D& vOut)
+	{
+		for (int iti = 0; iti < vIn.size(); ++iti) {
+			std::vector<Eigen::Vector3d> vEigenPts;
+			for (int itj = 0; itj < vIn[iti].size();++itj) {
+				Eigen::Vector3d eigenPt;
+				CommonFunctions::Point3d2Vector3d(vIn[iti][itj], eigenPt);
+				vEigenPts.push_back(eigenPt);
+			}
+			vOut.push_back(vEigenPts);
+		}
+		return;
 	}
 
 	bool ZZYCalibration::Normalize(const std::vector<Eigen::Vector2d>& vKeys, std::vector<Eigen::Vector2d>& vNormalizedPoints, Eigen::Matrix3d& T)
@@ -280,7 +305,6 @@ namespace MtZZYCalibration
 		double s = std::sqrt(v.dot(v));
 		Eigen::Vector3d axis = v / s;
 		Eigen::AngleAxisd r(s, axis);
-
 		return r.toRotationMatrix();
 	}
 
@@ -293,8 +317,7 @@ namespace MtZZYCalibration
 
 	bool ZZYCalibration::findHomographyByRansac(std::vector<Eigen::Vector2d>& srcPoints, std::vector<Eigen::Vector2d>& dstPoints, Eigen::Matrix3d& H, bool isNormal)throw(ZZYCalibrationFailure)
 	{
-		if (srcPoints.size() != dstPoints.size())
-		{
+		if (srcPoints.size() != dstPoints.size()) {
 			throw ZZYCalibrationFailure("Source feature points is not equal with Target feature points!");
 		}
 
@@ -457,8 +480,8 @@ namespace MtZZYCalibration
 	{
 		for (int row = 0; row < borderSize.width; ++row)
 		{
-			for (int col = 0; col < borderSize.height; ++col) {
-
+			for (int col = 0; col < borderSize.height; ++col) 
+			{
 				objectPoints.push_back(Eigen::Vector3d(col * squareSize.height, row * squareSize.width, 0.0));
 			}
 		}
@@ -469,8 +492,8 @@ namespace MtZZYCalibration
 	{
 		for (int row = 0; row < borderSize.height; ++row)
 		{
-			for (int col = 0; col < borderSize.width; ++col) {
-
+			for (int col = 0; col < borderSize.width; ++col) 
+			{
 				objectPoints.push_back(Eigen::Vector3d(col * squareSize.width, row * squareSize.height, 0.0));
 			}
 		}
@@ -480,60 +503,60 @@ namespace MtZZYCalibration
 		std::vector<std::vector<Eigen::Vector3d>>& objectPoints,
 		cv::Mat& cameraMatrix, cv::Mat& distCoeffs)throw(ZZYCalibrationFailure)
 	{
-		// step 1: find homography
-		std::cout << "Find Homography ......" << std::endl;
+		/*获取2D&3D之间的单应矩阵*/
+		std::cout << "Start Find Homography" << std::endl;
+		clock_t t1 = clock();
 		const int number = imagePoints.size();
 		std::vector<Eigen::Matrix3d> homographies;
-		for (int i = 0; i < number; i++)
-		{
+		for (int i = 0; i < number; i++) {
 			Eigen::Matrix3d H;
 			std::vector<Eigen::Vector2d> objectPoints2d;
-			for (auto& v : objectPoints[i])
-			{
+			for (auto& v : objectPoints[i]) {
 				objectPoints2d.push_back(Eigen::Vector2d(v(0), v(1)));
 			}
-			//bool ok = findHomography(objectPoints2d, imagePoints[i], H, true);
 			bool ok = findHomographyByOpenCV(objectPoints2d, imagePoints[i], H);
-			//bool ok = findHomographyByRansac(objectPoints2d, imagePoints[i], H, true);
+			/*bool ok = findHomography(objectPoints2d, imagePoints[i], H, true);
+			bool ok = findHomographyByRansac(objectPoints2d, imagePoints[i], H, true);*/
 			homographies.push_back(H);
 		}
-		std::cout << "Homography Founded ......" << std::endl;
-
-		// step 2: calculate camera initial instrinstic
-		std::cout << "Solve Init Camera Intrinstic ......" << std::endl;
+		clock_t t2 = clock();
+		std::cout << "End Find Homography: " << t2-t1 << "ms" << std::endl;
+		/*计算初始相机内参*/
+		std::cout << "Start Solve Init Camera Intrinstic" << std::endl;
+		clock_t t3 = clock();
 		Eigen::Matrix3d K = solveInitCameraIntrinstic(homographies);
-		/*std::cout << "Init K: " << K << std::endl;*/
-		std::cout << "Solve Init Camera Intrinstic Finished ......" << std::endl;
-
-		// step 3: calculate camera initial extrinstic
-		std::cout << "Solve Init Camera Extrinstic ......" << std::endl;
+		clock_t t4 = clock();
+		std::cout << "End Solve Init Camera Intrinstic: " << t4 - t3 << "ms" << std::endl;
+		/*计算初始相机外参*/
+		std::cout << "Start Solve Init Camera Extrinstic" << std::endl;
+		clock_t t5 = clock();
 		std::vector<Eigen::Matrix3d> RList;
 		std::vector<Eigen::Vector3d> tList;
 		std::vector<Eigen::Vector3d> rList;
 		solveInitCameraExtrinstic(homographies, K, RList, tList);
-		for (auto& item : RList)
-		{
+		for (auto& item : RList) {
 			Eigen::Vector3d _r = RotationMatrix2Vector(item);
 			rList.push_back(_r);
 		}
-		std::cout << "Solve Init Camera Extrinstic Finished ......" << std::endl;
-
+		clock_t t6 = clock();
+		std::cout << "End Solve Init Camera Extrinstic: " << t6 - t5 << "ms" << std::endl;
+		/*初始化相机内参&畸变参数*/
 		Eigen::Matrix3d KMatrix;
 		Eigen::VectorXd distortion;
-
-		// step 4: optimization K and T
+		/*优化相机内参&外参*/
 		{
+			/*K(0, 0) = 30000;
+			K(1, 1) = 30000;
+			K(0, 2) = 8000;
+			K(1, 2) = 8000;*/
 			ceres::Problem problem;
 			double k5[9] = { K(0,0), K(1,1), K(0,2), K(1,2), 0., 0., 0., 0., 0. };
 			double k4[8] = { K(0,0), K(1,1), K(0,2), K(1,2), 0., 0., 0., 0. };
 			for (int i = 0; i < number; ++i) {
 				for (int j = 0; j < imagePoints[i].size(); ++j) {
-
-					if (mDistortionParaNum == 5)
-					{
+					if (mDistortionParaNum == 5){
 						ceres::CostFunction* costFunction = new ceres::AutoDiffCostFunction<ProjectCost, 2, 9, 3, 3>(
 							new ProjectCost(objectPoints[i][j], imagePoints[i][j], 5));
-
 						problem.AddResidualBlock(costFunction,
 							nullptr,
 							k5,
@@ -541,11 +564,9 @@ namespace MtZZYCalibration
 							tList[i].data()
 						);
 					}
-					else if (mDistortionParaNum == 4)
-					{
-						ceres::CostFunction* costFunction = new ceres::AutoDiffCostFunction<ProjectCost, 2, 9, 3, 3>(
+					else if (mDistortionParaNum == 4) {
+						ceres::CostFunction* costFunction = new ceres::AutoDiffCostFunction<ProjectCost, 2, 8, 3, 3>(
 							new ProjectCost(objectPoints[i][j], imagePoints[i][j], 4));
-
 						problem.AddResidualBlock(costFunction,
 							nullptr,
 							k4,
@@ -553,35 +574,27 @@ namespace MtZZYCalibration
 							tList[i].data()
 						);
 					}
-
 				}
 			}
-			std::cout << "Bundle Ajustment Solve Options ..." << std::endl;
-
+			std::cout << "Bundle Ajustment Solve Options:" << std::endl;
 			ceres::Solver::Options options;
 			options.minimizer_progress_to_stdout = false;
 			options.linear_solver_type = ceres::DENSE_SCHUR;
 			options.trust_region_strategy_type = ceres::TrustRegionStrategyType::LEVENBERG_MARQUARDT;
 			options.preconditioner_type = ceres::JACOBI;
-			options.max_num_iterations = 10000;
+			options.max_num_iterations = 120;
 			options.sparse_linear_algebra_library_type = ceres::EIGEN_SPARSE;
 			options.function_tolerance = 1e-16;
 			options.gradient_tolerance = 1e-10;
 			ceres::Solver::Summary summary; 
 			ceres::Solve(options, &problem, &summary);
-			//std::cout << summary.BriefReport() << std::endl;
-
- 			if (!summary.IsSolutionUsable())
-			{
+ 			if (!summary.IsSolutionUsable()){
 				throw ZZYCalibrationFailure("Bundle Adjustment Failed ...");
 			}
-			else
-			{
-				//summary.num_
-				// Display statistics about the minimization
+			else{
 				std::cout << std::endl
 					<< " Bundle Adjustment Statistics (Approximated RMSE):\n"
-					<< " #views: " << number << "\n"								// number of photos used for calibration 
+					<< " #views: " << number << "\n"
 					<< " #residuals: " << summary.num_residuals << "\n"
 					<< " #num_parameters: " << summary.num_parameters << "\n"
 					<< " #num_parameter_blocks: " << summary.num_parameter_blocks << "\n"
@@ -589,17 +602,12 @@ namespace MtZZYCalibration
 					<< " #Final RMSE: " << std::sqrt(summary.final_cost / summary.num_residuals) << "\n"
 					<< " #Time (s): " << summary.total_time_in_seconds << "\n"
 					<< std::endl;
-
-				/*for (auto& a : k) std::cout << a << " ";*/
-
-				//cv::Mat cameraMatrix, distCoeffs;
-				//cameraMatrix = (cv::Mat_<double>(3, 3) << k[0], 0.0, k[2], 0, k[1], k[3], 0, 0, 1);
-				//distCoeffs = (cv::Mat_<double>(1, 5) << k[4], k[5], k[7], k[8], k[6]);
-
-
+				/*for (auto& a : k) std::cout << a << " ";
+				cv::Mat cameraMatrix, distCoeffs;
+				cameraMatrix = (cv::Mat_<double>(3, 3) << k[0], 0.0, k[2], 0, k[1], k[3], 0, 0, 1);
+				distCoeffs = (cv::Mat_<double>(1, 5) << k[4], k[5], k[7], k[8], k[6]);*/
 				Eigen::Matrix3d cameraMatrix_;
-				Eigen::VectorXd  distCoeffs_(5);
-
+				Eigen::VectorXd distCoeffs_(5);
 				if (mDistortionParaNum == 5)
 				{
 					cameraMatrix_ << k5[0], 0.0, k5[2], 0, k5[1], k5[3], 0, 0, 1;
@@ -610,49 +618,42 @@ namespace MtZZYCalibration
 					cameraMatrix_ << k4[0], 0.0, k4[2], 0, k4[1], k4[3], 0, 0, 1;
 					distCoeffs_ << k4[4], k4[5], k4[6], k4[7], 0;
 				}
-
+				/*计算相机重投影误差*/
 				std::vector<double> reprojectionErrors;
 				double totalAvgErr = computeReprojectionErrors(objectPoints, imagePoints, rList, tList, cameraMatrix_, distCoeffs_, reprojectionErrors);
 				std::cout << " Average Reprojection Error: " << totalAvgErr << std::endl;
 				for (size_t i = 0; i < reprojectionErrors.size(); i++){
 					std::cout << " " << i << " projection error = " << reprojectionErrors[i] << std::endl;
 				}
-
-				// Mat
+				/*相机内参&外参转化为cv格式*/
 				KMatrix = cameraMatrix_;
 				distortion = distCoeffs_;
 				cv::eigen2cv(cameraMatrix_, cameraMatrix);
 				cv::eigen2cv(distCoeffs_, distCoeffs);
 			}
 		}
-
-		for (int i = 0; i < rList.size(); i++)
-		{
+		/*获取旋转矩阵*/
+		for (int i = 0; i < rList.size(); i++) {
 			Eigen::Matrix3d _R = RotationVector2Matrix(rList[i]);
 			RList[i] = _R;
 		}
-
-		for (int i = 0; i < RList.size(); i++)
-		{
+		/*获取旋转矩阵序列*/
+		for (int i = 0; i < RList.size(); i++){
 			cv::Mat RMat; cv::eigen2cv(RList[i], RMat); mRListMat.push_back(RMat);
 			cv::Mat tMat; cv::eigen2cv(tList[i], tMat); mtListMat.push_back(tMat);
 		}
-
+		/*获取特征点3D坐标*/
 		std::vector<std::vector<Eigen::Vector3d>> vX3D;
 		vX3D.resize(mImageNum);
-
 		std::vector<double> vScale;
-		for (int i = 0; i < mImageNum; i++)
-		{
-			for (int j = 0; j < mImagePoints[i].size(); j++)
-			{
+		for (int i = 0; i < mImageNum; i++){
+			for (int j = 0; j < mImagePoints[i].size(); j++){
 				Eigen::Vector3d x3D = Eigen::Vector3d::Zero();
 				double scale = CalculateScale(mImagePoints[i][j], RList[i], tList[i], KMatrix, distortion, x3D);
 				vX3D[i].push_back(x3D);
 			}
 		}
-
-		mvX3D = vX3D;
+		this->mvX3D = vX3D;
 	}
 
 	void ZZYCalibration::DepthRecover(const Eigen::Matrix3d& K,

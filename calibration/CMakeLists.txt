@@ -20,9 +20,9 @@ include_directories(${CMAKE_SOURCE_DIR}/calibration/include)
 
 add_library(CaliTool STATIC ${CaliSrcs} ${CaliHdrs})
 
-target_link_libraries(CaliTool debug ${GLOG_LIBRARIES} optimized ${GLOG_LIBRARIES})
-target_link_libraries(CaliTool debug ${OpenCV4_DEBUG_LIB} optimized ${OpenCV4_RELEASE_LIB})
-target_link_libraries(CaliTool debug ${CERES_DEBUG_LIB} optimized ${CERES_RELEASE_LIB})
+target_link_libraries(CaliTool debug ${GLOG_DEBUG_LIB} 		optimized ${GLOG_RELEASE_LIB})
+target_link_libraries(CaliTool debug ${OpenCV4_DEBUG_LIB} 	optimized ${OpenCV4_RELEASE_LIB})
+target_link_libraries(CaliTool debug ${CERES_DEBUG_LIB} 	optimized ${CERES_RELEASE_LIB})
 foreach(_var ${GFLAGS_LIBRARIES})
     target_link_libraries(CaliTool debug ${GFLAGS_LIB_DIR}/${_var}_debug.lib
 	optimized ${GFLAGS_LIB_DIR}/${_var}.lib)

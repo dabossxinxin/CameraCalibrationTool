@@ -166,7 +166,6 @@ struct ProjectCostRT {
     }
 };
 
-
 struct BundleAdjustment
 {
     double imgx;
